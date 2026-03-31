@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx next:*)",
+      "Bash(ls /Users/takumafuse/Desktop/mindsera_proto/.env*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

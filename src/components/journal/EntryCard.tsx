@@ -1,0 +1,53 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { JournalEntry } from '@/lib/types'
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim()
+}
+
+function formatDate(date: Date): string {
+  return new Date(date).toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+}
+
+export function EntryCard({ entry }: { entry: JournalEntry }) {
+  const router = useRouter()
+  const preview = stripHtml(entry.content).slice(0, 120)
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.01 }}
+      transition={{ duration: 0.15 }}
+      onClick={() => router.push(`/journal/${entry.id}`)}
+      className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 cursor-pointer hover:border-zinc-700 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h3 className="text-white font-medium leading-snug">{entry.title}</h3>
+        <span className="text-xs text-zinc-500 shrink-0 mt-0.5">
+          {formatDate(entry.createdAt)}
+        </span>
+      </div>
+
+      <p className="text-zinc-400 text-sm leading-relaxed mb-3">
+        {preview}{preview.length >= 120 ? '…' : ''}
+      </p>
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">
+          {entry.wordCount}文字
+        </span>
+        {entry.summary && (
+          <p className="text-zinc-500 text-xs italic truncate max-w-[60%]">
+            {entry.summary.slice(0, 60)}{entry.summary.length > 60 ? '…' : ''}
+          </p>
+        )}
+      </div>
+    </motion.div>
+  )
+}
