@@ -16,7 +16,7 @@ const navItems = [
   { label: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard, enabled: true },
   { label: '新規エントリ', href: '/journal/new', icon: PenLine, enabled: true },
   { label: 'インサイト', href: '/insights', icon: BarChart2, enabled: true },
-  { label: 'フレームワーク', href: '/frameworks', icon: BookOpen, enabled: false },
+  { label: 'フレームワーク', href: '/frameworks', icon: BookOpen, enabled: true },
   { label: 'メンター', href: '/mentor', icon: MessageCircle, enabled: false },
 ]
 
