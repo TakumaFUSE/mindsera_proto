@@ -9,8 +9,11 @@ import {
   BookOpen,
   MessageCircle,
   Sparkles,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 const navItems = [
   { label: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard, enabled: true },
@@ -22,6 +25,14 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
 
   return (
     <aside className="hidden md:flex w-60 flex-shrink-0 h-screen sticky top-0 bg-zinc-900 border-r border-zinc-800 flex-col">
@@ -67,9 +78,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Streak */}
-      <div className="px-5 py-5 border-t border-zinc-800">
-        <span className="text-xs text-zinc-400">🔥 7日連続</span>
+      {/* Footer */}
+      <div className="px-3 py-4 border-t border-zinc-800">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2 w-full rounded-md text-sm text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>ログアウト</span>
+        </button>
       </div>
     </aside>
   )
