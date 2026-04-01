@@ -2,16 +2,12 @@
 
 import { useJournalStore } from '@/lib/store'
 import { EntryCard } from '@/components/journal/EntryCard'
+import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
+import { calcMindsetScore } from '@/lib/mindset-score'
 import Link from 'next/link'
 import { PenLine } from 'lucide-react'
 
-function isSameDay(a: Date, b: Date) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
+const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -41,9 +37,12 @@ export default function DashboardPage() {
   )
 
   // Calculate current streak
+  // 今日エントリがない場合は昨日から遡る（当日未記入でもストリークを維持）
   let streak = 0
   const today = new Date()
-  for (let i = 0; i < 365; i++) {
+  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`
+  const startOffset = entryDays.has(todayKey) ? 0 : 1
+  for (let i = startOffset; i < 365; i++) {
     const d = new Date(today)
     d.setDate(today.getDate() - i)
     const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -62,6 +61,8 @@ export default function DashboardPage() {
     return { date: d, hasEntry: entryDays.has(key) }
   })
 
+  const mindsetScore = calcMindsetScore(entries, streak)
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
@@ -69,6 +70,9 @@ export default function DashboardPage() {
         <p className="text-zinc-400 text-sm mb-1">{formatHeaderDate()}</p>
         <h1 className="text-2xl font-bold text-white">{getGreeting()}</h1>
       </div>
+
+      {/* Mindset Score */}
+      <MindsetScoreCard score={mindsetScore} />
 
       {/* Streak + Heatmap */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
@@ -81,18 +85,35 @@ export default function DashboardPage() {
         </div>
 
         {/* Heatmap grid */}
+        {/* 曜日ヘッダー: 28日前の曜日を起点に7列分 */}
+        <div className="grid grid-cols-7 gap-1.5 mb-1">
+          {Array.from({ length: 7 }, (_, col) => {
+            const dayIndex = (heatmapDays[col].date.getDay()) % 7
+            return (
+              <div key={col} className="w-7 text-center text-xs text-zinc-600">
+                {DAY_LABELS[dayIndex]}
+              </div>
+            )
+          })}
+        </div>
         <div className="grid grid-cols-7 gap-1.5">
           {heatmapDays.map(({ date, hasEntry }, i) => (
-            <div
-              key={i}
-              title={date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              className={`w-7 h-7 rounded-sm transition-colors ${
-                hasEntry ? 'bg-emerald-500' : 'bg-zinc-800'
-              }`}
-            />
+            <div key={i} className="flex flex-col items-center gap-0.5">
+              <div
+                title={date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                className={`w-7 h-7 rounded-sm transition-colors ${
+                  hasEntry ? 'bg-emerald-500' : 'bg-zinc-800'
+                }`}
+              />
+              {/* 各週の最初のセル（列0）に日付表示 */}
+              {i % 7 === 0 && (
+                <span className="text-zinc-700" style={{ fontSize: '9px' }}>
+                  {date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                </span>
+              )}
+            </div>
           ))}
         </div>
-        <p className="text-zinc-600 text-xs mt-2">過去28日間</p>
       </div>
 
       {/* New entry CTA */}

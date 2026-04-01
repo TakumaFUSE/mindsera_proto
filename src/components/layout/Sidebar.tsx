@@ -17,7 +17,7 @@ const navItems = [
   { label: '新規エントリ', href: '/journal/new', icon: PenLine, enabled: true },
   { label: 'インサイト', href: '/insights', icon: BarChart2, enabled: true },
   { label: 'フレームワーク', href: '/frameworks', icon: BookOpen, enabled: true },
-  { label: 'メンター', href: '/mentor', icon: MessageCircle, enabled: false },
+  { label: 'メンター', href: '/mentor', icon: MessageCircle, enabled: true },
 ]
 
 export function Sidebar() {
@@ -26,10 +26,10 @@ export function Sidebar() {
   return (
     <aside className="w-60 flex-shrink-0 h-screen sticky top-0 bg-zinc-900 border-r border-zinc-800 flex flex-col">
       {/* Logo */}
-      <div className="flex items-center gap-2 px-5 py-6">
+      <Link href="/dashboard" className="flex items-center gap-2 px-5 py-6 hover:opacity-80 transition-opacity">
         <Sparkles className="w-4 h-4 text-violet-400" />
         <span className="text-xl font-bold text-white tracking-tight">mindsera</span>
-      </div>
+      </Link>
 
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1">

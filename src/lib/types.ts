@@ -6,6 +6,7 @@ export interface JournalEntry {
   wordCount: number
   summary?: string
   emotionAnalysis?: EmotionAnalysis
+  artUrl?: string
 }
 
 // Plutchik の8基本感情

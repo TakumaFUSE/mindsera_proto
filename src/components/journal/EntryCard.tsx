@@ -25,28 +25,42 @@ export function EntryCard({ entry }: { entry: JournalEntry }) {
       whileHover={{ scale: 1.01 }}
       transition={{ duration: 0.15 }}
       onClick={() => router.push(`/journal/${entry.id}`)}
-      className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 cursor-pointer hover:border-zinc-700 transition-colors"
+      className="bg-zinc-900 border border-zinc-800 rounded-xl cursor-pointer hover:border-zinc-700 transition-colors overflow-hidden"
     >
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <h3 className="text-white font-medium leading-snug">{entry.title}</h3>
-        <span className="text-xs text-zinc-500 shrink-0 mt-0.5">
-          {formatDate(entry.createdAt)}
-        </span>
-      </div>
+      {/* Art thumbnail */}
+      {entry.artUrl && (
+        <div className="h-28 w-full overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={entry.artUrl}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
-      <p className="text-zinc-400 text-sm leading-relaxed mb-3">
-        {preview}{preview.length >= 120 ? '…' : ''}
-      </p>
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <h3 className="text-white font-medium leading-snug">{entry.title}</h3>
+          <span className="text-xs text-zinc-500 shrink-0 mt-0.5">
+            {formatDate(entry.createdAt)}
+          </span>
+        </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">
-          {entry.wordCount}文字
-        </span>
-        {entry.summary && (
-          <p className="text-zinc-500 text-xs italic truncate max-w-[60%]">
-            {entry.summary.slice(0, 60)}{entry.summary.length > 60 ? '…' : ''}
-          </p>
-        )}
+        <p className="text-zinc-400 text-sm leading-relaxed mb-3">
+          {preview}{preview.length >= 120 ? '…' : ''}
+        </p>
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full">
+            {entry.wordCount}文字
+          </span>
+          {entry.summary && (
+            <p className="text-zinc-500 text-xs italic truncate max-w-[60%]">
+              {entry.summary.slice(0, 60)}{entry.summary.length > 60 ? '…' : ''}
+            </p>
+          )}
+        </div>
       </div>
     </motion.div>
   )

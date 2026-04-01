@@ -14,6 +14,11 @@ export function EmotionBubbles({ analysis }: EmotionBubblesProps) {
 
   const selectedEmotion = analysis.emotions.find((e) => e.type === selected)
 
+  // dominant が EMOTION_META に存在しない場合は最初の感情にフォールバック
+  const dominantKey = EMOTION_META[analysis.dominant]
+    ? analysis.dominant
+    : analysis.emotions[0]?.type
+
   // バブルサイズをスコアに応じてスケール（最小48px、最大96px）
   function bubbleSize(score: number) {
     return Math.round(48 + score * 48)
@@ -40,6 +45,7 @@ export function EmotionBubbles({ analysis }: EmotionBubblesProps) {
       <div className="flex flex-wrap gap-3 items-end mb-5">
         {analysis.emotions.map((emotion, i) => {
           const meta = EMOTION_META[emotion.type]
+          if (!meta) return null
           const size = bubbleSize(emotion.score)
           const isSelected = selected === emotion.type
 
@@ -124,16 +130,18 @@ export function EmotionBubbles({ analysis }: EmotionBubblesProps) {
       </AnimatePresence>
 
       {/* dominant */}
-      <div className="mt-4 flex items-center gap-2">
-        <span className="text-xs text-zinc-600">主な感情:</span>
-        <span
-          className="text-xs font-medium"
-          style={{ color: EMOTION_META[analysis.dominant].color }}
-        >
-          {EMOTION_META[analysis.dominant].label}
-        </span>
-        <span className="text-xs text-zinc-600">— {analysis.overall}</span>
-      </div>
+      {dominantKey && EMOTION_META[dominantKey] && (
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-xs text-zinc-600">主な感情:</span>
+          <span
+            className="text-xs font-medium"
+            style={{ color: EMOTION_META[dominantKey].color }}
+          >
+            {EMOTION_META[dominantKey].label}
+          </span>
+          <span className="text-xs text-zinc-600">— {analysis.overall}</span>
+        </div>
+      )}
     </div>
   )
 }

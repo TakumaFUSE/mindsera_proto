@@ -7,6 +7,7 @@ interface JournalStore {
   addEntry: (entry: Omit<JournalEntry, 'id' | 'createdAt'>) => string
   updateEntry: (id: string, updates: Partial<Omit<JournalEntry, 'id'>>) => void
   setEmotionAnalysis: (id: string, analysis: EmotionAnalysis) => void
+  setArtUrl: (id: string, url: string) => void
   getEntry: (id: string) => JournalEntry | undefined
 }
 
@@ -36,6 +37,14 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     set((state) => ({
       entries: state.entries.map((e) =>
         e.id === id ? { ...e, emotionAnalysis: analysis } : e
+      ),
+    }))
+  },
+
+  setArtUrl: (id, url) => {
+    set((state) => ({
+      entries: state.entries.map((e) =>
+        e.id === id ? { ...e, artUrl: url } : e
       ),
     }))
   },

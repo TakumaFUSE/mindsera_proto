@@ -4,7 +4,9 @@
       "Bash(npx tsc:*)",
       "Bash(npx next:*)",
       "Bash(ls /Users/takumafuse/Desktop/mindsera_proto/.env*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(node -e \"const ai = require\\(''ai''\\); console.log\\(Object.keys\\(ai\\).filter\\(k=>k.toLowerCase\\(\\).includes\\(''chat''\\)\\).join\\(''\\\\n''\\)\\)\")",
+      "Bash(node -e \"const ai = require\\(''''ai''''\\); const st = ai.streamText; const r = st\\({model: null}\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(r\\)\\).filter\\(k=>k.includes\\(''''Stream''''\\)||k.includes\\(''''stream''''\\)||k.includes\\(''''Response''''\\)||k.includes\\(''''response''''\\)\\)\\)\")"
     ]
   }
 }
