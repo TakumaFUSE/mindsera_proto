@@ -85,11 +85,13 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       entries: state.entries.map((e) => (e.id === id ? { ...e, emotionAnalysis: analysis } : e)),
     }))
 
-    const supabase = createClient()
-    supabase.from('journal_entries').update({
-      emotion_analysis: analysis,
-      updated_at: new Date().toISOString(),
-    }).eq('id', id)
+    ;(async () => {
+      const supabase = createClient()
+      await supabase.from('journal_entries').update({
+        emotion_analysis: analysis,
+        updated_at: new Date().toISOString(),
+      }).eq('id', id)
+    })()
   },
 
   setArtUrl: (id, url) => {
@@ -97,11 +99,13 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       entries: state.entries.map((e) => (e.id === id ? { ...e, artUrl: url } : e)),
     }))
 
-    const supabase = createClient()
-    supabase.from('journal_entries').update({
-      art_url: url,
-      updated_at: new Date().toISOString(),
-    }).eq('id', id)
+    ;(async () => {
+      const supabase = createClient()
+      await supabase.from('journal_entries').update({
+        art_url: url,
+        updated_at: new Date().toISOString(),
+      }).eq('id', id)
+    })()
   },
 
   getEntry: (id) => {
