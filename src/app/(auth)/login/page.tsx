@@ -82,7 +82,23 @@ export default function LoginPage() {
         </form>
       </div>
 
-      <p className="text-center text-sm text-zinc-600 mt-5">
+      {/* Demo hint */}
+      <div className="mt-5 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+        <p className="text-xs text-zinc-500 mb-2 font-medium">デモアカウントで試す</p>
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => { setEmail('mindsera@sample.com'); setPassword('password') }}
+            className="text-left text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            📧 mindsera@sample.com
+          </button>
+          <span className="text-xs text-zinc-600">🔑 password</span>
+        </div>
+        <p className="text-xs text-zinc-700 mt-2">クリックで自動入力されます</p>
+      </div>
+
+      <p className="text-center text-sm text-zinc-600 mt-4">
         アカウントをお持ちでない方は{' '}
         <Link href="/signup" className="text-violet-400 hover:text-violet-300">
           新規登録

@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { JournalEntry, EmotionAnalysis } from '@/lib/types'
-import { mockEntries } from '@/lib/mock-data'
 
 interface JournalStore {
   entries: JournalEntry[]
+  initEntries: (entries: JournalEntry[]) => void
   addEntry: (entry: Omit<JournalEntry, 'id' | 'createdAt'>) => string
   updateEntry: (id: string, updates: Partial<Omit<JournalEntry, 'id'>>) => void
   setEmotionAnalysis: (id: string, analysis: EmotionAnalysis) => void
@@ -12,7 +12,11 @@ interface JournalStore {
 }
 
 export const useJournalStore = create<JournalStore>((set, get) => ({
-  entries: mockEntries,
+  entries: [],
+
+  initEntries: (entries) => {
+    set({ entries })
+  },
 
   addEntry: (entry) => {
     const id = crypto.randomUUID()
