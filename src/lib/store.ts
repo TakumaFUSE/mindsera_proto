@@ -36,6 +36,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       summary: row.summary ?? undefined,
       artUrl: row.art_url ?? undefined,
       emotionAnalysis: row.emotion_analysis ?? undefined,
+      frameworkId: row.framework_id ?? undefined,
     }))
     set({ entries })
   },
@@ -55,6 +56,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
         title: entry.title,
         content: entry.content,
         word_count: entry.wordCount,
+        framework_id: entry.frameworkId ?? null,
         created_at: newEntry.createdAt.toISOString(),
         updated_at: newEntry.createdAt.toISOString(),
       })

@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, RotateCcw, BookOpen } from 'lucide-react'
-import Link from 'next/link'
+import { Send, RotateCcw, BookOpen, Plus, Loader2 } from 'lucide-react'
 import { personas, Persona } from '@/lib/personas'
 import { useJournalStore } from '@/lib/store'
+import { createClient } from '@/lib/supabase/client'
 
 interface Message {
   id: string
@@ -17,23 +17,70 @@ function toPlainText(html: string) {
   return html.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim()
 }
 
-// ストリーミングチャットフック
-function useStreamChat(personaId: string, entryContext: string) {
+const WELCOME_MESSAGES: Record<string, string> = {
+  stoic: 'こんにちは。今日、あなたがコントロールできることに意識を向けてみましょう。何が気になっていますか？',
+  cbt: 'こんにちは。今日の気分はどうですか？何か頭の中をぐるぐるしていることがあれば、一緒に整理しましょう。',
+  psychologist: 'こんにちは。今日ここに来てくださってありがとうございます。今、どんな気持ちでいますか？',
+  challenger: '来ましたね。今日、あなたが本当に向き合いたいことは何ですか？',
+}
+
+const EMOJI: Record<string, string> = {
+  stoic: '🏛️', cbt: '🧠', psychologist: '💙', challenger: '⚡',
+}
+
+// ---- DB helpers ----
+async function loadConversation(personaId: string): Promise<Message[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('mentor_conversations')
+    .select('messages')
+    .eq('persona_id', personaId)
+    .maybeSingle()
+  return (data?.messages as Message[]) ?? []
+}
+
+async function saveConversation(personaId: string, messages: Message[]) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  await supabase.from('mentor_conversations').upsert(
+    { user_id: user.id, persona_id: personaId, messages, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id,persona_id' }
+  )
+}
+
+// ---- Chat hook ----
+function useStreamChat(persona: Persona, entryContext: string) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(true)
+
+  // 履歴をDBからロード
+  useEffect(() => {
+    setHistoryLoading(true)
+    loadConversation(persona.id).then((saved) => {
+      if (saved.length > 0) {
+        setMessages(saved)
+      } else {
+        setMessages([{ id: 'welcome', role: 'assistant', content: WELCOME_MESSAGES[persona.id] }])
+      }
+      setHistoryLoading(false)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persona.id])
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return
 
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text }
     const assistantId = crypto.randomUUID()
-
-    setMessages((prev) => [
-      ...prev,
+    const nextMessages: Message[] = [
+      ...messages,
       userMsg,
       { id: assistantId, role: 'assistant', content: '' },
-    ])
+    ]
+    setMessages(nextMessages)
     setInput('')
     setIsLoading(true)
 
@@ -42,12 +89,9 @@ function useStreamChat(personaId: string, entryContext: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          personaId,
+          personaId: persona.id,
           entryContext,
-          messages: [...messages, userMsg].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
         }),
       })
 
@@ -55,38 +99,48 @@ function useStreamChat(personaId: string, entryContext: string) {
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
+      let assistantContent = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         const chunk = decoder.decode(value, { stream: true })
+        assistantContent += chunk
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId ? { ...m, content: m.content + chunk } : m
-          )
+          prev.map((m) => m.id === assistantId ? { ...m, content: m.content + chunk } : m)
         )
       }
+
+      // 完了後にDBへ保存
+      const finalMessages: Message[] = [
+        ...messages,
+        userMsg,
+        { id: assistantId, role: 'assistant', content: assistantContent },
+      ]
+      saveConversation(persona.id, finalMessages)
     } catch {
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantId
-            ? { ...m, content: 'エラーが発生しました。もう一度試してください。' }
-            : m
+          m.id === assistantId ? { ...m, content: 'エラーが発生しました。もう一度試してください。' } : m
         )
       )
     } finally {
       setIsLoading(false)
     }
-  }, [messages, isLoading, personaId, entryContext])
+  }, [messages, isLoading, persona.id, entryContext])
 
-  return { messages, setMessages, input, setInput, isLoading, sendMessage }
+  const resetConversation = useCallback(async () => {
+    const welcome: Message = { id: 'welcome', role: 'assistant', content: WELCOME_MESSAGES[persona.id] }
+    setMessages([welcome])
+    setInput('')
+    await saveConversation(persona.id, [welcome])
+  }, [persona.id])
+
+  return { messages, input, setInput, isLoading, historyLoading, sendMessage, resetConversation }
 }
 
-// ペルソナ選択画面
+// ---- Persona selector ----
 function PersonaSelector({ onSelect }: { onSelect: (p: Persona) => void }) {
-  const EMOJI: Record<string, string> = {
-    stoic: '🏛️', cbt: '🧠', psychologist: '💙', challenger: '⚡',
-  }
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
@@ -105,10 +159,7 @@ function PersonaSelector({ onSelect }: { onSelect: (p: Persona) => void }) {
             onClick={() => onSelect(persona)}
             className="text-left bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-5 transition-colors"
           >
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center mb-3 text-lg"
-              style={{ backgroundColor: persona.bg }}
-            >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3 text-lg" style={{ backgroundColor: persona.bg }}>
               {EMOJI[persona.id]}
             </div>
             <h3 className="text-white font-semibold text-sm mb-0.5">{persona.name}</h3>
@@ -121,7 +172,7 @@ function PersonaSelector({ onSelect }: { onSelect: (p: Persona) => void }) {
   )
 }
 
-// チャット画面
+// ---- Chat view ----
 function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void }) {
   const entries = useJournalStore((s) => s.entries)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -131,24 +182,8 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
     .map((e) => `【${e.title}】\n${toPlainText(e.content)}`)
     .join('\n\n')
 
-  const { messages, setMessages, input, setInput, isLoading, sendMessage } =
-    useStreamChat(persona.id, entryContext)
-
-  const EMOJI: Record<string, string> = {
-    stoic: '🏛️', cbt: '🧠', psychologist: '💙', challenger: '⚡',
-  }
-
-  // ウェルカムメッセージ
-  useEffect(() => {
-    const welcomes: Record<string, string> = {
-      stoic: 'こんにちは。今日、あなたがコントロールできることに意識を向けてみましょう。何が気になっていますか？',
-      cbt: 'こんにちは。今日の気分はどうですか？何か頭の中をぐるぐるしていることがあれば、一緒に整理しましょう。',
-      psychologist: 'こんにちは。今日ここに来てくださってありがとうございます。今、どんな気持ちでいますか？',
-      challenger: '来ましたね。今日、あなたが本当に向き合いたいことは何ですか？',
-    }
-    setMessages([{ id: 'welcome', role: 'assistant', content: welcomes[persona.id] }])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persona.id])
+  const { messages, input, setInput, isLoading, historyLoading, sendMessage, resetConversation } =
+    useStreamChat(persona, entryContext)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -166,10 +201,7 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-base"
-            style={{ backgroundColor: persona.bg }}
-          >
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: persona.bg }}>
             {EMOJI[persona.id]}
           </div>
           <div>
@@ -177,65 +209,72 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
             <p className="text-xs" style={{ color: persona.color }}>{persona.role}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {entries.length > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-zinc-600">
               <BookOpen className="w-3 h-3" />
-              <span>直近{Math.min(entries.length, 3)}件のエントリを参照中</span>
+              <span className="hidden sm:inline">直近{Math.min(entries.length, 3)}件参照中</span>
             </div>
           )}
+          <button
+            onClick={resetConversation}
+            title="新しい会話を始める"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-colors"
+          >
+            <Plus className="w-3 h-3" />新しい会話
+          </button>
           <button
             onClick={onReset}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-colors"
           >
-            <RotateCcw className="w-3 h-3" />
-            変える
+            <RotateCcw className="w-3 h-3" />変える
           </button>
         </div>
       </div>
 
       {/* メッセージ一覧 */}
       <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
-        <AnimatePresence initial={false}>
-          {messages.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {msg.role === 'assistant' && (
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mr-2 mt-1"
-                  style={{ backgroundColor: persona.bg }}
-                >
-                  {EMOJI[persona.id]}
-                </div>
-              )}
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+        {historyLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-5 h-5 text-zinc-600 animate-spin" />
+          </div>
+        ) : (
+          <AnimatePresence initial={false}>
+            {messages.map((msg) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                {msg.role === 'assistant' && (
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mr-2 mt-1" style={{ backgroundColor: persona.bg }}>
+                    {EMOJI[persona.id]}
+                  </div>
+                )}
+                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
                   msg.role === 'user'
                     ? 'bg-violet-600 text-white rounded-br-sm'
                     : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'
-                }`}
-              >
-                {msg.content || (
-                  <span className="flex gap-1">
-                    {[0, 1, 2].map((i) => (
-                      <motion.span
-                        key={i}
-                        className="w-1.5 h-1.5 bg-zinc-500 rounded-full inline-block"
-                        animate={{ opacity: [0.3, 1, 0.3] }}
-                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                      />
-                    ))}
-                  </span>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                }`}>
+                  {msg.content || (
+                    <span className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <motion.span
+                          key={i}
+                          className="w-1.5 h-1.5 bg-zinc-500 rounded-full inline-block"
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                        />
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -264,6 +303,7 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
   )
 }
 
+// ---- Page ----
 export default function MentorPage() {
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null)
 

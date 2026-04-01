@@ -7,6 +7,7 @@ export interface JournalEntry {
   summary?: string
   emotionAnalysis?: EmotionAnalysis
   artUrl?: string
+  frameworkId?: string
 }
 
 // Plutchik の8基本感情
