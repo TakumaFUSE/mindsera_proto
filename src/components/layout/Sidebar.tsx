@@ -39,7 +39,7 @@ export function Sidebar() {
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-2 px-5 py-6 hover:opacity-80 transition-opacity">
         <Sparkles className="w-4 h-4 text-violet-400" />
-        <span className="text-xl font-bold text-white tracking-tight">mindsera</span>
+        <span className="text-xl font-bold text-white tracking-tight">mindsolo</span>
       </Link>
 
       {/* Nav */}
