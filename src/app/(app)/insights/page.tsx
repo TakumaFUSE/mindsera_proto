@@ -92,7 +92,7 @@ export default function InsightsPage() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">インサイト</h1>
           <p className="text-zinc-500 text-sm mt-1">感情の傾向を振り返る</p>
@@ -234,7 +234,7 @@ export default function InsightsPage() {
                 </AreaChart>
               </ResponsiveContainer>
               {/* 凡例 */}
-              <div className="flex items-center gap-4 mt-3">
+              <div className="flex flex-wrap items-center gap-3 mt-3">
                 {TREND_EMOTIONS.map((emotion) => (
                   <div key={emotion} className="flex items-center gap-1.5">
                     <span

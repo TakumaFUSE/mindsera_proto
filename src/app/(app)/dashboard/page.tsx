@@ -90,7 +90,7 @@ export default function DashboardPage() {
           {Array.from({ length: 7 }, (_, col) => {
             const dayIndex = (heatmapDays[col].date.getDay()) % 7
             return (
-              <div key={col} className="w-7 text-center text-xs text-zinc-600">
+              <div key={col} className="text-center text-xs text-zinc-600">
                 {DAY_LABELS[dayIndex]}
               </div>
             )

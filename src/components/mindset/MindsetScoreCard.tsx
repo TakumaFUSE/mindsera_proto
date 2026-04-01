@@ -101,7 +101,7 @@ export function MindsetScoreCard({ score }: { score: MindsetScore }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-7">
+      <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-7">
         <RadialGauge value={score.total} color={score.gradeColor} />
 
         <div className="flex-1 flex flex-col gap-3.5">

@@ -24,7 +24,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-60 flex-shrink-0 h-screen sticky top-0 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+    <aside className="hidden md:flex w-60 flex-shrink-0 h-screen sticky top-0 bg-zinc-900 border-r border-zinc-800 flex-col">
       {/* Logo */}
       <Link href="/dashboard" className="flex items-center gap-2 px-5 py-6 hover:opacity-80 transition-opacity">
         <Sparkles className="w-4 h-4 text-violet-400" />

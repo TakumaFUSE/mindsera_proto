@@ -93,7 +93,7 @@ function PersonaSelector({ onSelect }: { onSelect: (p: Persona) => void }) {
         <h1 className="text-2xl font-bold text-white">AIメンター</h1>
         <p className="text-zinc-500 text-sm mt-1">今日対話したいメンターを選んでください</p>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {personas.map((persona, i) => (
           <motion.button
             key={persona.id}
@@ -162,7 +162,7 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
   }
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col h-[calc(100vh-8rem)]">
+    <div className="max-w-2xl mx-auto flex flex-col h-[calc(100dvh-12rem)] md:h-[calc(100dvh-8rem)]">
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-3">

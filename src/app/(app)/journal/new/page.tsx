@@ -46,7 +46,7 @@ function CompletionModal({ streak, onContinue }: { streak: number; onContinue: (
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.3 }}
-        className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-2xl w-full overflow-hidden grid grid-cols-2"
+        className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-2xl w-full overflow-hidden grid grid-cols-1 sm:grid-cols-2"
       >
         <div className="p-10 flex flex-col justify-center">
           <h2 className="text-2xl font-bold text-white leading-snug mb-4">
