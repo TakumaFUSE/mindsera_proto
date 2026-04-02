@@ -3,17 +3,30 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { RotateCcw, Loader2 } from 'lucide-react'
+import { RotateCcw, Loader2, PenLine, Layers, Zap } from 'lucide-react'
 import { useJournalStore } from '@/lib/store'
 import { EmotionAnalysis } from '@/lib/types'
 import { calculateEnergy } from '@/lib/streak'
 
+type Mode = 'free' | 'deep' | 'quick'
 type Phase = 'write' | 'loading' | 'deepen' | 'saving' | 'complete'
 
 interface Turn {
   question: string
   answer: string
 }
+
+const QUICK_QUESTIONS = [
+  { key: 'mood', label: '今の気分を一言で表すと？' },
+  { key: 'event', label: '今日、印象に残った出来事は？' },
+  { key: 'tomorrow', label: '明日の自分に一言伝えるとしたら？' },
+] as const
+
+const MODES: { id: Mode; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'free', label: 'フリーライト', Icon: PenLine },
+  { id: 'deep', label: 'ディープダイブ', Icon: Layers },
+  { id: 'quick', label: 'クイックチェックイン', Icon: Zap },
+]
 
 function CompletionModal({ energy, onContinue }: { energy: number; onContinue: () => void }) {
   return (
@@ -69,13 +82,13 @@ export default function NewEntryPage() {
   const setEmotionAnalysis = useJournalStore((s) => s.setEmotionAnalysis)
   const entries = useJournalStore((s) => s.entries)
 
+  const [mode, setMode] = useState<Mode>('free')
   const [phase, setPhase] = useState<Phase>('write')
   const [text, setText] = useState('')
-  // 確定済みのQ&Aターン
   const [turns, setTurns] = useState<Turn[]>([])
-  // 現在表示中の質問と入力中の回答
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [currentAnswer, setCurrentAnswer] = useState('')
+  const [quickAnswers, setQuickAnswers] = useState({ mood: '', event: '', tomorrow: '' })
   const [energy, setEnergy] = useState(0)
   const [savedId, setSavedId] = useState<string | null>(null)
 
@@ -86,6 +99,16 @@ export default function NewEntryPage() {
   useEffect(() => {
     if (phase === 'deepen') answerRef.current?.focus()
   }, [phase, turns.length])
+
+  const handleModeChange = (newMode: Mode) => {
+    setMode(newMode)
+    setPhase('write')
+    setText('')
+    setTurns([])
+    setCurrentQuestion('')
+    setCurrentAnswer('')
+    setQuickAnswers({ mood: '', event: '', tomorrow: '' })
+  }
 
   const fetchQuestion = async (committedTurns: Turn[]) => {
     setPhase('loading')
@@ -103,17 +126,14 @@ export default function NewEntryPage() {
     }
   }
 
-  // Phase 1 のメインボタン
   const handleMainButton = () => {
     fetchQuestion([])
   }
 
-  // Phase 2: 回答なし → 別の質問を取得
   const handleRefresh = () => {
     fetchQuestion(turns)
   }
 
-  // Phase 2: 回答あり → 現ターンを確定して次の質問を取得
   const handleGoDeeper = () => {
     const newTurns = [...turns, { question: currentQuestion, answer: currentAnswer }]
     setTurns(newTurns)
@@ -124,24 +144,38 @@ export default function NewEntryPage() {
   const handleFinish = async () => {
     setPhase('saving')
 
-    // 確定済みターン + 現在のターン（回答があれば）を含めてコンテンツ生成
-    const allTurns = currentAnswer.trim()
-      ? [...turns, { question: currentQuestion, answer: currentAnswer }]
-      : turns
+    let content = ''
+    let plainText = ''
 
-    const contentParts: string[] = []
-    if (text.trim()) contentParts.push(`<p>${text.trim().replace(/\n/g, '<br>')}</p>`)
-    for (const t of allTurns) {
-      if (t.question) contentParts.push(`<blockquote><em>${t.question}</em></blockquote>`)
-      if (t.answer.trim()) contentParts.push(`<p>${t.answer.trim().replace(/\n/g, '<br>')}</p>`)
+    if (mode === 'quick') {
+      const parts = [
+        quickAnswers.mood.trim() ? `【気分】${quickAnswers.mood.trim()}` : '',
+        quickAnswers.event.trim() ? `【出来事】${quickAnswers.event.trim()}` : '',
+        quickAnswers.tomorrow.trim() ? `【明日の自分へ】${quickAnswers.tomorrow.trim()}` : '',
+      ].filter(Boolean)
+      plainText = parts.join('\n\n')
+      content = parts.map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
+    } else {
+      const allTurns = currentAnswer.trim()
+        ? [...turns, { question: currentQuestion, answer: currentAnswer }]
+        : turns
+
+      const contentParts: string[] = []
+      if (text.trim()) contentParts.push(`<p>${text.trim().replace(/\n/g, '<br>')}</p>`)
+      for (const t of allTurns) {
+        if (t.question) contentParts.push(`<blockquote><em>${t.question}</em></blockquote>`)
+        if (t.answer.trim()) contentParts.push(`<p>${t.answer.trim().replace(/\n/g, '<br>')}</p>`)
+      }
+      content = contentParts.join('')
+      plainText = [text, ...allTurns.map((t) => t.answer)].join('')
     }
-    const content = contentParts.join('')
 
-    // 文字数は日本語対応でcharacter countを使用
-    const plainText = [text, ...allTurns.map((t) => t.answer)].join('')
     const wordCount = plainText.replace(/\s+/g, '').length
+    const title = (mode === 'quick'
+      ? quickAnswers.mood.trim() || quickAnswers.event.trim()
+      : text.trim()
+    ).slice(0, 40) || 'New Entry'
 
-    const title = text.trim().slice(0, 40) || 'New Entry'
     const id = addEntry({ title, content, wordCount })
 
     try {
@@ -177,12 +211,32 @@ export default function NewEntryPage() {
         )}
       </AnimatePresence>
 
-      <div className="max-w-xl mx-auto pt-20 px-4">
+      <div className="max-w-xl mx-auto pt-12 px-4">
+        {/* Mode selector — only show in write phase */}
+        {(phase === 'write' || phase === 'loading') && (
+          <div className="grid grid-cols-3 gap-2 mb-10">
+            {MODES.map(({ id, label, Icon }) => (
+              <button
+                key={id}
+                onClick={() => handleModeChange(id)}
+                className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg text-sm font-medium transition-colors ${
+                  mode === id
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
-          {/* Phase 1: Write */}
-          {(phase === 'write' || (phase === 'loading' && turns.length === 0)) && (
+          {/* フリーライト */}
+          {mode === 'free' && (phase === 'write' || phase === 'loading' || phase === 'saving') && (
             <motion.div
-              key="write"
+              key="free"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -192,6 +246,34 @@ export default function NewEntryPage() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="今日、何を考えていますか..."
+                rows={6}
+                className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-12"
+              />
+              <button
+                onClick={handleFinish}
+                disabled={isLoading || !text.trim()}
+                className="flex items-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white font-semibold rounded-full text-base transition-colors"
+              >
+                {phase === 'saving' ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" />保存中…</>
+                ) : 'エントリを完成させる'}
+              </button>
+            </motion.div>
+          )}
+
+          {/* ディープダイブ: Phase 1 */}
+          {mode === 'deep' && (phase === 'write' || (phase === 'loading' && turns.length === 0)) && (
+            <motion.div
+              key="deep-write"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="まず思ったことを書いてみましょう..."
                 rows={4}
                 className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-12"
               />
@@ -207,20 +289,18 @@ export default function NewEntryPage() {
             </motion.div>
           )}
 
-          {/* Phase 2: Deepen（会話スレッド） */}
-          {(phase === 'deepen' || phase === 'saving' || (phase === 'loading' && turns.length > 0)) && (
+          {/* ディープダイブ: Phase 2 */}
+          {mode === 'deep' && (phase === 'deepen' || phase === 'saving' || (phase === 'loading' && turns.length > 0)) && (
             <motion.div
-              key="deepen"
+              key="deep-deepen"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {/* 初期テキスト */}
               <p className="text-2xl text-white leading-relaxed mb-8 whitespace-pre-wrap">
                 {text}
               </p>
 
-              {/* 確定済みターン */}
               {turns.map((turn, i) => (
                 <div key={i}>
                   <div className="border-l-4 border-violet-500 pl-5 mb-6">
@@ -232,7 +312,6 @@ export default function NewEntryPage() {
                 </div>
               ))}
 
-              {/* 現在の質問 */}
               <AnimatePresence>
                 {currentQuestion && (
                   <motion.div
@@ -246,7 +325,6 @@ export default function NewEntryPage() {
                 )}
               </AnimatePresence>
 
-              {/* 回答入力エリア（ローディング中は非表示） */}
               {phase !== 'loading' && (
                 <textarea
                   ref={answerRef}
@@ -258,7 +336,6 @@ export default function NewEntryPage() {
                 />
               )}
 
-              {/* ボタン群 */}
               <div className="flex items-center gap-6">
                 <button
                   onClick={hasAnswer ? handleGoDeeper : handleRefresh}
@@ -282,6 +359,40 @@ export default function NewEntryPage() {
                   {phase === 'saving' ? '保存中…' : 'エントリを完成させる'}
                 </button>
               </div>
+            </motion.div>
+          )}
+
+          {/* クイックチェックイン */}
+          {mode === 'quick' && (phase === 'write' || phase === 'saving') && (
+            <motion.div
+              key="quick"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col gap-8"
+            >
+              {QUICK_QUESTIONS.map(({ key, label }) => (
+                <div key={key}>
+                  <p className="text-zinc-400 text-sm mb-3">{label}</p>
+                  <textarea
+                    value={quickAnswers[key]}
+                    onChange={(e) => setQuickAnswers((prev) => ({ ...prev, [key]: e.target.value }))}
+                    rows={2}
+                    className="w-full bg-transparent border-none outline-none text-xl text-white placeholder-zinc-700 resize-none leading-relaxed border-b border-zinc-800 pb-2"
+                    placeholder="ここに書く..."
+                  />
+                </div>
+              ))}
+
+              <button
+                onClick={handleFinish}
+                disabled={isLoading || Object.values(quickAnswers).every((v) => !v.trim())}
+                className="flex items-center gap-2 w-fit px-8 py-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white font-semibold rounded-full text-base transition-colors mt-4"
+              >
+                {phase === 'saving' ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" />保存中…</>
+                ) : 'エントリを完成させる'}
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
