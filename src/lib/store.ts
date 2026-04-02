@@ -77,8 +77,10 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     if (updates.wordCount !== undefined) dbUpdates.word_count = updates.wordCount
     if (updates.summary !== undefined) dbUpdates.summary = updates.summary
 
-    const supabase = createClient()
-    supabase.from('journal_entries').update(dbUpdates).eq('id', id)
+    ;(async () => {
+      const supabase = createClient()
+      await supabase.from('journal_entries').update(dbUpdates).eq('id', id)
+    })()
   },
 
   setEmotionAnalysis: (id, analysis) => {
