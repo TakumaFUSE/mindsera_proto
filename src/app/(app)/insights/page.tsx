@@ -12,8 +12,13 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from 'recharts'
+import Link from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { useJournalStore } from '@/lib/store'
 import { EMOTION_META, PlutchikEmotion, JournalEntry } from '@/lib/types'
+import { calcStreak, toDateKey } from '@/lib/streak'
+import { calcMindsetScore } from '@/lib/mindset-score'
+import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
 
 type Range = '7' | '30' | 'all'
 
@@ -23,13 +28,20 @@ const RANGE_LABELS: Record<Range, string> = {
   'all': 'すべて',
 }
 
-// トレンドチャートに表示する感情（多すぎると見づらいので上位4つ）
 const TREND_EMOTIONS: PlutchikEmotion[] = ['joy', 'sadness', 'fear', 'anticipation']
+
+const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
 interface Nudge {
   message: string
   buttonLabel: string
   href: string
+}
+
+interface PastEntry {
+  entry: JournalEntry
+  label: string
+  snippet: string
 }
 
 function calcNudge(entries: JournalEntry[]): Nudge | null {
@@ -73,6 +85,67 @@ function calcNudge(entries: JournalEntry[]): Nudge | null {
   }
 }
 
+function getPastEntry(entries: JournalEntry[]): PastEntry | null {
+  if (entries.length <= 1) return null
+
+  const now = Date.now()
+  const DAY = 24 * 60 * 60 * 1000
+
+  const daysDiff = (e: JournalEntry) =>
+    Math.round((now - new Date(e.createdAt).getTime()) / DAY)
+
+  const candidates = entries.slice(1)
+
+  let found: JournalEntry | null = null
+  let label = ''
+
+  const around30 = candidates
+    .filter((e) => Math.abs(daysDiff(e) - 30) <= 2)
+    .sort((a, b) => Math.abs(daysDiff(a) - 30) - Math.abs(daysDiff(b) - 30))
+  if (around30.length > 0) {
+    found = around30[0]
+    label = '1ヶ月前のあなたより'
+  }
+
+  if (!found) {
+    const around7 = candidates
+      .filter((e) => Math.abs(daysDiff(e) - 7) <= 1)
+      .sort((a, b) => Math.abs(daysDiff(a) - 7) - Math.abs(daysDiff(b) - 7))
+    if (around7.length > 0) {
+      found = around7[0]
+      label = '1週間前のあなたより'
+    }
+  }
+
+  if (!found) {
+    found = candidates[candidates.length - 1]
+    const days = daysDiff(found)
+    label = `${days}日前のあなたより`
+  }
+
+  const plain = found.content.replace(/<[^>]+>/g, '')
+  const snippet = plain.length > 80 ? plain.slice(0, 80) + '...' : plain
+
+  return { entry: found, label, snippet }
+}
+
+function getThisMonday(): Date {
+  const d = new Date()
+  const day = d.getDay()
+  const diff = day === 0 ? 6 : day - 1
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - diff)
+  return d
+}
+
+function getWeeklyOverall(dominant: PlutchikEmotion): string {
+  if (dominant === 'joy' || dominant === 'trust') return '充実した1週間'
+  if (dominant === 'fear' || dominant === 'sadness') return '内省が深まった週'
+  if (dominant === 'anger') return 'エネルギッシュな週'
+  if (dominant === 'anticipation') return '期待に満ちた週'
+  return '変化のある週'
+}
+
 function NudgeCard({ nudge, onNavigate }: { nudge: Nudge; onNavigate: (href: string) => void }) {
   return (
     <motion.div
@@ -93,13 +166,94 @@ function NudgeCard({ nudge, onNavigate }: { nudge: Nudge; onNavigate: (href: str
   )
 }
 
+function WeeklyArtCard({
+  weeklyDominant,
+  weeklyOverall,
+  cachedUrl,
+  onGenerated,
+}: {
+  weeklyDominant: PlutchikEmotion
+  weeklyOverall: string
+  cachedUrl: string | null
+  onGenerated: (url: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [url, setUrl] = useState<string | null>(cachedUrl)
+
+  const generate = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/art', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weekly: true, weeklyDominant, weeklyOverall }),
+      })
+      if (res.ok) {
+        const { url: newUrl } = await res.json()
+        setUrl(newUrl)
+        onGenerated(newUrl)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-6"
+    >
+      <div className="flex items-center justify-between p-4 pb-3">
+        <span className="text-zinc-500 text-xs">🎨 今週のアート</span>
+        <span className="text-zinc-400 text-xs">{weeklyOverall}</span>
+      </div>
+
+      {url ? (
+        <>
+          <img src={url} alt="今週のアート" className="w-full h-40 object-cover" />
+          <div className="flex items-center p-3">
+            <button
+              onClick={() => window.open(url, '_blank')}
+              className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors"
+            >
+              壁紙にする
+            </button>
+            <button
+              onClick={generate}
+              disabled={loading}
+              className="text-zinc-600 text-xs ml-auto hover:text-zinc-400 transition-colors disabled:opacity-40"
+            >
+              {loading ? '生成中…' : '再生成'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="bg-zinc-800 h-40 flex items-center justify-center">
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-lg px-4 py-2 transition-colors disabled:opacity-60"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading ? '生成中…' : '生成する'}
+          </button>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 export default function InsightsPage() {
   const entries = useJournalStore((s) => s.entries)
+  const weeklyArtUrl = useJournalStore((s) => s.weeklyArtUrl)
+  const weeklyArtGeneratedAt = useJournalStore((s) => s.weeklyArtGeneratedAt)
+  const setWeeklyArt = useJournalStore((s) => s.setWeeklyArt)
   const router = useRouter()
   const [range, setRange] = useState<Range>('all')
   const [selectedEmotion, setSelectedEmotion] = useState<PlutchikEmotion | null>(null)
 
-  // 期間フィルター
   const filteredEntries = useMemo(() => {
     const sorted = [...entries]
       .filter((e) => e.emotionAnalysis)
@@ -111,7 +265,6 @@ export default function InsightsPage() {
     return sorted.filter((e) => new Date(e.createdAt).getTime() >= cutoff)
   }, [entries, range])
 
-  // 全エントリの感情を集計（平均スコア）
   const aggregatedEmotions = useMemo(() => {
     const totals: Partial<Record<PlutchikEmotion, { sum: number; count: number }>> = {}
     for (const entry of filteredEntries) {
@@ -129,7 +282,6 @@ export default function InsightsPage() {
       .sort((a, b) => b.avg - a.avg)
   }, [filteredEntries])
 
-  // 時系列トレンドデータ
   const trendData = useMemo(() => {
     return filteredEntries.map((entry) => {
       const point: Record<string, unknown> = {
@@ -144,7 +296,6 @@ export default function InsightsPage() {
     })
   }, [filteredEntries])
 
-  // dominant感情でフィルタしたエントリ
   const filteredByEmotion = useMemo(() => {
     if (!selectedEmotion) return filteredEntries
     return filteredEntries.filter(
@@ -154,8 +305,53 @@ export default function InsightsPage() {
 
   const nudge = useMemo(() => calcNudge(entries), [entries])
 
-  const bubbleSize = (avg: number) => Math.round(44 + avg * 52)
+  // Weekly art
+  const monday = getThisMonday()
+  const weeklyEntries = entries.filter(
+    (e) => e.emotionAnalysis && new Date(e.createdAt) >= monday
+  )
 
+  let weeklyDominant: PlutchikEmotion | null = null
+  if (weeklyEntries.length > 0) {
+    const totals: Partial<Record<PlutchikEmotion, { sum: number; count: number }>> = {}
+    for (const e of weeklyEntries) {
+      for (const d of e.emotionAnalysis!.emotions) {
+        if (!totals[d.type]) totals[d.type] = { sum: 0, count: 0 }
+        totals[d.type]!.sum += d.score
+        totals[d.type]!.count++
+      }
+    }
+    weeklyDominant = (Object.entries(totals) as [PlutchikEmotion, { sum: number; count: number }][])
+      .map(([type, { sum, count }]) => ({ type, avg: sum / count }))
+      .sort((a, b) => b.avg - a.avg)[0]?.type ?? null
+  }
+
+  const weeklyOverall = weeklyDominant ? getWeeklyOverall(weeklyDominant) : ''
+  const isCacheValid = weeklyArtGeneratedAt
+    ? new Date(weeklyArtGeneratedAt) >= monday
+    : false
+  const cachedWeeklyUrl = isCacheValid ? weeklyArtUrl : null
+
+  // Mindset score
+  const streak = calcStreak(entries.map((e) => new Date(e.createdAt)))
+  const hasEmotionEntries = entries.some((e) => e.emotionAnalysis)
+  const mindsetScore = entries.length > 0 && hasEmotionEntries
+    ? calcMindsetScore(entries, streak)
+    : null
+
+  // Heatmap
+  const entryDays = new Set(entries.map((e) => toDateKey(new Date(e.createdAt))))
+  const today = new Date()
+  const heatmapDays = Array.from({ length: 28 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(today.getDate() - (27 - i))
+    return { date: d, hasEntry: entryDays.has(toDateKey(d)) }
+  })
+
+  // Past self
+  const pastEntry = getPastEntry(entries)
+
+  const bubbleSize = (avg: number) => Math.round(44 + avg * 52)
   const hasData = filteredEntries.length > 0
 
   return (
@@ -163,13 +359,25 @@ export default function InsightsPage() {
       {/* 今週のナッジ */}
       {nudge && <NudgeCard nudge={nudge} onNavigate={router.push} />}
 
+      {/* 週次アートカード */}
+      {weeklyDominant && (
+        <WeeklyArtCard
+          weeklyDominant={weeklyDominant}
+          weeklyOverall={weeklyOverall}
+          cachedUrl={cachedWeeklyUrl}
+          onGenerated={setWeeklyArt}
+        />
+      )}
+
+      {/* マインドセットスコア */}
+      {mindsetScore && <MindsetScoreCard score={mindsetScore} />}
+
       {/* ヘッダー */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">インサイト</h1>
           <p className="text-zinc-500 text-sm mt-1">感情の傾向を振り返る</p>
         </div>
-        {/* 期間フィルター */}
         <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-1">
           {(Object.keys(RANGE_LABELS) as Range[]).map((r) => (
             <button
@@ -305,7 +513,6 @@ export default function InsightsPage() {
                   ))}
                 </AreaChart>
               </ResponsiveContainer>
-              {/* 凡例 */}
               <div className="flex flex-wrap items-center gap-3 mt-3">
                 {TREND_EMOTIONS.map((emotion) => (
                   <div key={emotion} className="flex items-center gap-1.5">
@@ -320,7 +527,70 @@ export default function InsightsPage() {
             </section>
           )}
 
-          {/* ③ エントリ一覧（絞り込み対応） */}
+          {/* ③ 28日ヒートマップ */}
+          {entries.length > 0 && (
+            <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+              <h2 className="text-sm font-medium text-zinc-400 mb-4">28日の記録</h2>
+              <div className="grid grid-cols-7 gap-1.5 mb-1">
+                {Array.from({ length: 7 }, (_, col) => {
+                  const dayIndex = heatmapDays[col].date.getDay() % 7
+                  return (
+                    <div key={col} className="text-center text-xs text-zinc-600">
+                      {DAY_LABELS[dayIndex]}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {heatmapDays.map(({ date, hasEntry }, i) => (
+                  <div key={i} className="flex flex-col items-center gap-0.5">
+                    <div
+                      title={date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                      className={`w-7 h-7 rounded-sm transition-colors ${
+                        hasEntry ? 'bg-emerald-500' : 'bg-zinc-800'
+                      }`}
+                    />
+                    {i % 7 === 0 && (
+                      <span className="text-zinc-700" style={{ fontSize: '9px' }}>
+                        {date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ④ 過去の自分から */}
+          {pastEntry && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5"
+            >
+              <p className="text-zinc-500 text-xs">🕰 {pastEntry.label}</p>
+              <p className="text-zinc-300 text-sm mt-3 italic leading-relaxed">
+                &ldquo;{pastEntry.snippet}&rdquo;
+              </p>
+              <div className="flex items-center justify-end gap-3 mt-4">
+                <Link
+                  href={`/journal/${pastEntry.entry.id}`}
+                  className="text-zinc-500 text-xs underline hover:text-zinc-300 transition-colors"
+                >
+                  当時のエントリを見る
+                </Link>
+                <Link
+                  href="/journal/new"
+                  className="bg-violet-600 hover:bg-violet-500 text-white text-xs rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  返事を書く
+                </Link>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ⑤ エントリ一覧（絞り込み対応） */}
           <section>
             <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
               {selectedEmotion
@@ -355,7 +625,6 @@ export default function InsightsPage() {
                         {meta.label}
                       </span>
                     </div>
-                    {/* ミニ感情バー */}
                     <div className="flex gap-1 mt-3">
                       {entry.emotionAnalysis!.emotions.slice(0, 5).map((e) => (
                         <div
