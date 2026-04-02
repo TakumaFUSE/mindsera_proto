@@ -4,6 +4,7 @@ import { useJournalStore } from '@/lib/store'
 import { EntryCard } from '@/components/journal/EntryCard'
 import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
 import { calcMindsetScore } from '@/lib/mindset-score'
+import { calcStreak, toDateKey } from '@/lib/streak'
 import Link from 'next/link'
 import { PenLine, Sparkles } from 'lucide-react'
 
@@ -54,33 +55,14 @@ function MindsetWelcomeCard() {
 export default function DashboardPage() {
   const entries = useJournalStore((s) => s.entries)
 
-  const entryDays = new Set(
-    entries.map((e) => {
-      const d = new Date(e.createdAt)
-      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-    })
-  )
+  const entryDays = new Set(entries.map((e) => toDateKey(new Date(e.createdAt))))
+  const streak = calcStreak(entries.map((e) => new Date(e.createdAt)))
 
-  let streak = 0
   const today = new Date()
-  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`
-  const startOffset = entryDays.has(todayKey) ? 0 : 1
-  for (let i = startOffset; i < 365; i++) {
-    const d = new Date(today)
-    d.setDate(today.getDate() - i)
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-    if (entryDays.has(key)) {
-      streak++
-    } else {
-      break
-    }
-  }
-
   const heatmapDays = Array.from({ length: 28 }, (_, i) => {
     const d = new Date(today)
     d.setDate(today.getDate() - (27 - i))
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-    return { date: d, hasEntry: entryDays.has(key) }
+    return { date: d, hasEntry: entryDays.has(toDateKey(d)) }
   })
 
   const mindsetScore = entries.length > 0 ? calcMindsetScore(entries, streak) : null

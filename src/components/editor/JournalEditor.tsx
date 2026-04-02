@@ -32,9 +32,8 @@ export function JournalEditor({
     onUpdate: ({ editor }) => {
       if (onChange) {
         const html = editor.getHTML()
-        const text = editor.getText()
-        const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length
-        onChange(html, wordCount)
+        const charCount = editor.getText().replace(/\s+/g, '').length
+        onChange(html, charCount)
       }
     },
   })

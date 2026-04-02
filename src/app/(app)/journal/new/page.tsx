@@ -6,33 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { RotateCcw, Loader2 } from 'lucide-react'
 import { useJournalStore } from '@/lib/store'
 import { EmotionAnalysis } from '@/lib/types'
+import { calcStreak } from '@/lib/streak'
 
 type Phase = 'write' | 'loading' | 'deepen' | 'saving' | 'complete'
 
 interface Turn {
   question: string
   answer: string
-}
-
-function calcStreak(createdAts: Date[]): number {
-  const entryDays = new Set(
-    createdAts.map((d) => {
-      const dt = new Date(d)
-      return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`
-    })
-  )
-  const today = new Date()
-  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`
-  const startOffset = entryDays.has(todayKey) ? 0 : 1
-  let streak = 0
-  for (let i = startOffset; i < 365; i++) {
-    const d = new Date(today)
-    d.setDate(today.getDate() - i)
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-    if (entryDays.has(key)) streak++
-    else break
-  }
-  return streak
 }
 
 function CompletionModal({ streak, onContinue }: { streak: number; onContinue: () => void }) {
