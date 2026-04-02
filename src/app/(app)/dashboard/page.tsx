@@ -5,6 +5,8 @@ import { EntryCard } from '@/components/journal/EntryCard'
 import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
 import { calcMindsetScore } from '@/lib/mindset-score'
 import { calcStreak, toDateKey, calculateEnergy } from '@/lib/streak'
+import { getMentorMessage } from '@/lib/personas'
+import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { PenLine, Sparkles } from 'lucide-react'
 
@@ -67,6 +69,8 @@ export default function DashboardPage() {
   })
 
   const mindsetScore = entries.length > 0 ? calcMindsetScore(entries, streak) : null
+  const latestAnalysis = entries[0]?.emotionAnalysis ?? null
+  const mentorMsg = latestAnalysis ? getMentorMessage(latestAnalysis.dominant) : null
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -81,6 +85,30 @@ export default function DashboardPage() {
         <MindsetScoreCard score={mindsetScore} />
       ) : (
         <MindsetWelcomeCard />
+      )}
+
+      {/* Mentor message */}
+      {mentorMsg && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-6"
+        >
+          <div className="border-l-2 border-violet-500 pl-4">
+            <p className="text-zinc-500 text-xs mb-2">メンターより</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base">{mentorMsg.icon}</span>
+              <span className="text-zinc-400 text-sm">{mentorMsg.personaName}</span>
+            </div>
+            <p className="text-zinc-200 text-sm mt-1 leading-relaxed">{mentorMsg.message}</p>
+            <div className="flex justify-end mt-3">
+              <Link href="/mentor" className="text-violet-400 text-xs hover:text-violet-300 transition-colors">
+                続きを話す →
+              </Link>
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* Energy + Heatmap */}

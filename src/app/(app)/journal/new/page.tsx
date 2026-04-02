@@ -7,6 +7,7 @@ import { RotateCcw, Loader2, PenLine, Layers, Zap } from 'lucide-react'
 import { useJournalStore } from '@/lib/store'
 import { EmotionAnalysis } from '@/lib/types'
 import { calculateEnergy } from '@/lib/streak'
+import { getMentorMessage, MentorMessage } from '@/lib/personas'
 
 type Mode = 'free' | 'deep' | 'quick'
 type Phase = 'write' | 'loading' | 'deepen' | 'saving' | 'complete'
@@ -28,7 +29,17 @@ const MODES: { id: Mode; label: string; Icon: React.ComponentType<{ className?: 
   { id: 'quick', label: 'クイックチェックイン', Icon: Zap },
 ]
 
-function CompletionModal({ energy, onContinue }: { energy: number; onContinue: () => void }) {
+function CompletionModal({
+  energy,
+  mentorMsg,
+  onContinue,
+  onMentor,
+}: {
+  energy: number
+  mentorMsg: MentorMessage | null
+  onContinue: () => void
+  onMentor: () => void
+}) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -47,10 +58,25 @@ function CompletionModal({ energy, onContinue }: { energy: number; onContinue: (
             メンタルフィットネスが<br />
             向上しています。
           </h2>
-          <p className="text-zinc-500 text-sm leading-relaxed mb-8">
+          <p className="text-zinc-500 text-sm leading-relaxed mb-6">
             毎日振り返ることでエナジーを積み上げ、
             あなただけにパーソナライズされた体験が得られます。
           </p>
+          {mentorMsg && (
+            <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 mb-6">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{mentorMsg.icon}</span>
+                <span className="text-zinc-400 text-xs">{mentorMsg.personaName}</span>
+              </div>
+              <p className="text-zinc-200 text-sm mt-2 leading-relaxed">{mentorMsg.message}</p>
+              <button
+                onClick={onMentor}
+                className="text-violet-400 text-xs mt-3 hover:text-violet-300 transition-colors"
+              >
+                話を続ける →
+              </button>
+            </div>
+          )}
           <button
             onClick={onContinue}
             className="w-fit px-6 py-3 bg-white text-zinc-900 font-semibold rounded-full text-sm hover:bg-zinc-100 transition-colors"
@@ -91,6 +117,7 @@ export default function NewEntryPage() {
   const [quickAnswers, setQuickAnswers] = useState({ mood: '', event: '', tomorrow: '' })
   const [energy, setEnergy] = useState(0)
   const [savedId, setSavedId] = useState<string | null>(null)
+  const [savedAnalysis, setSavedAnalysis] = useState<EmotionAnalysis | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const answerRef = useRef<HTMLTextAreaElement>(null)
@@ -188,6 +215,7 @@ export default function NewEntryPage() {
         const { summary, ...analysis }: EmotionAnalysis & { summary?: string } = await res.json()
         setEmotionAnalysis(id, analysis)
         if (summary) updateEntry(id, { summary })
+        setSavedAnalysis(analysis)
       }
     } catch {}
 
@@ -206,7 +234,9 @@ export default function NewEntryPage() {
         {phase === 'complete' && savedId && (
           <CompletionModal
             energy={energy}
+            mentorMsg={savedAnalysis ? getMentorMessage(savedAnalysis.dominant) : null}
             onContinue={() => router.push(`/journal/${savedId}`)}
+            onMentor={() => router.push('/mentor')}
           />
         )}
       </AnimatePresence>

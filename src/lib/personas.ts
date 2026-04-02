@@ -1,3 +1,5 @@
+import { PlutchikEmotion } from './types'
+
 export type PersonaId = 'stoic' | 'cbt' | 'psychologist' | 'challenger'
 
 export interface Persona {
@@ -8,6 +10,56 @@ export interface Persona {
   color: string
   bg: string
   systemPrompt: string
+}
+
+export interface MentorMessage {
+  icon: string
+  personaName: string
+  message: string
+  personaId: PersonaId
+}
+
+export function getMentorMessage(dominant: PlutchikEmotion): MentorMessage {
+  switch (dominant) {
+    case 'anger':
+      return {
+        icon: '🏛️',
+        personaName: 'ストア哲学者',
+        message: '怒りはコントロール外への反応です。今あなたがコントロールできることは何ですか？',
+        personaId: 'stoic',
+      }
+    case 'fear':
+    case 'sadness':
+      return {
+        icon: '💙',
+        personaName: '心理士',
+        message: 'その感情、しっかり受け取りました。もう少し一緒に掘り下げてみましょうか。',
+        personaId: 'psychologist',
+      }
+    case 'disgust':
+      return {
+        icon: '🧠',
+        personaName: 'CBTコーチ',
+        message: 'その反応の裏にある思い込みを、一緒に確認してみませんか？',
+        personaId: 'cbt',
+      }
+    case 'joy':
+    case 'anticipation':
+    case 'trust':
+      return {
+        icon: '⚡',
+        personaName: 'チャレンジャー',
+        message: '良い状態ですね。このエネルギー、次の一手に使いましょう。何に挑みますか？',
+        personaId: 'challenger',
+      }
+    default:
+      return {
+        icon: '🏛️',
+        personaName: 'ストア哲学者',
+        message: '予期せぬことほど、自分を知るヒントになります。',
+        personaId: 'stoic',
+      }
+  }
 }
 
 export const personas: Persona[] = [
