@@ -1,13 +1,15 @@
 'use client'
 
 import { use, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, Pencil, Check, Sparkles, Loader2, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { JournalEditor } from '@/components/editor/JournalEditor'
 import { EmotionBubbles } from '@/components/emotions/EmotionBubbles'
 import { useJournalStore } from '@/lib/store'
-import { EmotionAnalysis } from '@/lib/types'
+import { EmotionAnalysis, PlutchikEmotion } from '@/lib/types'
+import { getMentorMessage } from '@/lib/personas'
 
 function formatDate(date: Date) {
   return new Date(date).toLocaleDateString('ja-JP', {
@@ -18,12 +20,48 @@ function formatDate(date: Date) {
   })
 }
 
+function getNextActions(dominant: PlutchikEmotion) {
+  const mentorMsg = getMentorMessage(dominant)
+
+  const card1 = {
+    icon: mentorMsg.icon,
+    title: 'この感情についてメンターと話す',
+    description: `${mentorMsg.personaName}が待っています`,
+    href: '/mentor',
+  }
+
+  const card2 = {
+    icon: '📊',
+    title: '感情の傾向を見る',
+    description: 'インサイトページで過去の傾向と比較',
+    href: '/insights',
+  }
+
+  const isNegative = ['fear', 'sadness', 'anger', 'disgust'].includes(dominant)
+  const card3 = isNegative
+    ? {
+        icon: '🧠',
+        title: 'CBTフレームワークで整理する',
+        description: '思考パターンを可視化してみましょう',
+        href: '/frameworks',
+      }
+    : {
+        icon: '✏️',
+        title: 'もう1つエントリを書く',
+        description: 'この良い状態を記録に残しましょう',
+        href: '/journal/new',
+      }
+
+  return [card1, card2, card3]
+}
+
 export default function EntryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const entry = useJournalStore((s) => s.getEntry(id))
   const updateEntry = useJournalStore((s) => s.updateEntry)
   const setArtUrl = useJournalStore((s) => s.setArtUrl)
   const setEmotionAnalysis = useJournalStore((s) => s.setEmotionAnalysis)
+  const router = useRouter()
 
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(entry?.title ?? '')
@@ -105,9 +143,13 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
     setIsEditing(true)
   }
 
+  const nextActions = entry.emotionAnalysis && !isEditing
+    ? getNextActions(entry.emotionAnalysis.dominant)
+    : null
+
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Top bar */}
+      {/* トップバー */}
       <div className="flex items-center justify-between mb-8">
         <Link
           href="/dashboard"
@@ -135,7 +177,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         )}
       </div>
 
-      {/* Title */}
+      {/* タイトル */}
       {isEditing ? (
         <input
           type="text"
@@ -147,7 +189,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         <h1 className="text-3xl font-bold text-white mb-4">{entry.title}</h1>
       )}
 
-      {/* Meta */}
+      {/* メタ */}
       <div className="flex items-center gap-3 mb-6">
         <span className="text-sm text-zinc-500">{formatDate(entry.createdAt)}</span>
         <span className="text-zinc-700">·</span>
@@ -156,9 +198,17 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         </span>
       </div>
 
-      {/* AI Summary */}
+      {/* 本文 */}
+      <JournalEditor
+        key={isEditing ? 'edit' : 'view'}
+        content={isEditing ? editContent : entry.content}
+        onChange={isEditing ? (html, wc) => { setEditContent(html); setEditWordCount(wc) } : undefined}
+        editable={isEditing}
+      />
+
+      {/* AIサマリー */}
       {!isEditing && (
-        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 mb-6">
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 mt-6 mb-6">
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-xs bg-violet-500/20 text-violet-300 border border-violet-500/30 px-2 py-0.5 rounded-full font-medium">
               AI サマリー
@@ -185,7 +235,14 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         </div>
       )}
 
-      {/* AI Art */}
+      {/* 感情分析 */}
+      {entry.emotionAnalysis && !isEditing && (
+        <div className="mb-6">
+          <EmotionBubbles analysis={entry.emotionAnalysis} />
+        </div>
+      )}
+
+      {/* AIアート */}
       {!isEditing && entry.emotionAnalysis && (
         <div className="mb-6">
           <AnimatePresence mode="wait">
@@ -254,19 +311,29 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         </div>
       )}
 
-      {/* Editor / Content */}
-      <JournalEditor
-        key={isEditing ? 'edit' : 'view'}
-        content={isEditing ? editContent : entry.content}
-        onChange={isEditing ? (html, wc) => { setEditContent(html); setEditWordCount(wc) } : undefined}
-        editable={isEditing}
-      />
-
-      {/* Emotion Analysis */}
-      {entry.emotionAnalysis && !isEditing && (
-        <div className="mt-8">
-          <EmotionBubbles analysis={entry.emotionAnalysis} />
-        </div>
+      {/* ネクストアクション */}
+      {nextActions && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <p className="text-zinc-600 text-xs uppercase tracking-wider mb-3">Next</p>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {nextActions.map((action) => (
+              <div
+                key={action.href + action.title}
+                onClick={() => router.push(action.href)}
+                className="min-w-[200px] max-w-[240px] flex-shrink-0 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 cursor-pointer transition-colors"
+              >
+                <span className="text-xl">{action.icon}</span>
+                <p className="text-zinc-200 text-sm font-medium mt-2">{action.title}</p>
+                <p className="text-zinc-500 text-xs mt-1">{action.description}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       )}
     </div>
   )
