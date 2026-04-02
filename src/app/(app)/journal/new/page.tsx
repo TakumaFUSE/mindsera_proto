@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { RotateCcw, Loader2 } from 'lucide-react'
 import { useJournalStore } from '@/lib/store'
 import { EmotionAnalysis } from '@/lib/types'
-import { calcStreak } from '@/lib/streak'
+import { calculateEnergy } from '@/lib/streak'
 
 type Phase = 'write' | 'loading' | 'deepen' | 'saving' | 'complete'
 
@@ -15,7 +15,7 @@ interface Turn {
   answer: string
 }
 
-function CompletionModal({ streak, onContinue }: { streak: number; onContinue: () => void }) {
+function CompletionModal({ energy, onContinue }: { energy: number; onContinue: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -35,7 +35,7 @@ function CompletionModal({ streak, onContinue }: { streak: number; onContinue: (
             向上しています。
           </h2>
           <p className="text-zinc-500 text-sm leading-relaxed mb-8">
-            毎日振り返ることでストリークを伸ばし、
+            毎日振り返ることでエナジーを積み上げ、
             あなただけにパーソナライズされた体験が得られます。
           </p>
           <button
@@ -50,10 +50,11 @@ function CompletionModal({ streak, onContinue }: { streak: number; onContinue: (
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
-            className="w-40 h-40 rounded-full border-4 border-zinc-600 flex flex-col items-center justify-center"
+            className="w-40 h-40 rounded-full border-4 border-violet-500/60 flex flex-col items-center justify-center"
           >
-            <span className="text-5xl font-bold text-white tabular-nums">{streak}</span>
-            <span className="text-zinc-500 text-sm mt-1">day streak</span>
+            <span className="text-violet-400 text-sm font-medium mb-1">＋20エナジー獲得！</span>
+            <span className="text-4xl font-bold text-white tabular-nums">{energy}</span>
+            <span className="text-zinc-500 text-xs mt-1">/ 100</span>
           </motion.div>
         </div>
       </motion.div>
@@ -75,7 +76,7 @@ export default function NewEntryPage() {
   // 現在表示中の質問と入力中の回答
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [currentAnswer, setCurrentAnswer] = useState('')
-  const [streak, setStreak] = useState(0)
+  const [energy, setEnergy] = useState(0)
   const [savedId, setSavedId] = useState<string | null>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -156,8 +157,8 @@ export default function NewEntryPage() {
       }
     } catch {}
 
-    const allDates = [new Date(), ...entries.map((e) => new Date(e.createdAt))]
-    setStreak(calcStreak(allDates))
+    const allEntries = [{ createdAt: new Date() } as (typeof entries)[0], ...entries]
+    setEnergy(calculateEnergy(allEntries))
     setSavedId(id)
     setPhase('complete')
   }
@@ -170,7 +171,7 @@ export default function NewEntryPage() {
       <AnimatePresence>
         {phase === 'complete' && savedId && (
           <CompletionModal
-            streak={streak}
+            energy={energy}
             onContinue={() => router.push(`/journal/${savedId}`)}
           />
         )}

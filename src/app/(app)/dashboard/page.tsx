@@ -4,7 +4,7 @@ import { useJournalStore } from '@/lib/store'
 import { EntryCard } from '@/components/journal/EntryCard'
 import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
 import { calcMindsetScore } from '@/lib/mindset-score'
-import { calcStreak, toDateKey } from '@/lib/streak'
+import { calcStreak, toDateKey, calculateEnergy } from '@/lib/streak'
 import Link from 'next/link'
 import { PenLine, Sparkles } from 'lucide-react'
 
@@ -57,6 +57,7 @@ export default function DashboardPage() {
 
   const entryDays = new Set(entries.map((e) => toDateKey(new Date(e.createdAt))))
   const streak = calcStreak(entries.map((e) => new Date(e.createdAt)))
+  const energy = calculateEnergy(entries)
 
   const today = new Date()
   const heatmapDays = Array.from({ length: 28 }, (_, i) => {
@@ -82,16 +83,28 @@ export default function DashboardPage() {
         <MindsetWelcomeCard />
       )}
 
-      {/* Streak + Heatmap */}
+      {/* Energy + Heatmap */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-        <div className="flex items-center gap-3 mb-5">
-          <span className="text-4xl font-bold text-white">{streak}</span>
-          <div>
-            <p className="text-white font-medium leading-tight">日連続</p>
-            <p className="text-zinc-500 text-xs">
-              {streak === 0 ? '今日から始めよう！' : 'この調子で続けよう 🔥'}
-            </p>
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-white font-medium text-sm">メンタルエナジー</p>
+            <p className="text-white font-semibold tabular-nums">{energy} / 100</p>
           </div>
+          <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                energy <= 30 ? 'bg-zinc-500' : energy <= 60 ? 'bg-violet-400' : 'bg-violet-500'
+              }`}
+              style={{ width: `${energy}%` }}
+            />
+          </div>
+          <p className="text-zinc-500 text-xs mt-2">
+            {energy <= 30
+              ? '少し充電が必要です。今日書いてみましょう。'
+              : energy <= 60
+              ? '良いペースです。続けていきましょう。'
+              : '絶好調！この調子で。🔥'}
+          </p>
         </div>
 
         {/* 曜日ヘッダー */}
