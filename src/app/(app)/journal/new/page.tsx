@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { RotateCcw, Loader2, PenLine, Layers, Zap } from 'lucide-react'
 import { useJournalStore } from '@/lib/store'
 import { EmotionAnalysis } from '@/lib/types'
-import { calculateEnergy } from '@/lib/streak'
+import { calculateEnergy, toDateKey } from '@/lib/streak'
 import { getMentorMessage, MentorMessage } from '@/lib/personas'
 
 type Mode = 'free' | 'deep' | 'quick'
@@ -32,11 +32,13 @@ const MODES: { id: Mode; label: string; Icon: React.ComponentType<{ className?: 
 function CompletionModal({
   energy,
   mentorMsg,
+  isFirstToday,
   onContinue,
   onMentor,
 }: {
   energy: number
   mentorMsg: MentorMessage | null
+  isFirstToday: boolean
   onContinue: () => void
   onMentor: () => void
 }) {
@@ -54,13 +56,16 @@ function CompletionModal({
       >
         <div className="p-10 flex flex-col justify-center">
           <h2 className="text-2xl font-bold text-white leading-snug mb-4">
-            素晴らしい！<br />
-            メンタルフィットネスが<br />
-            向上しています。
+            {isFirstToday ? (
+              <>素晴らしい！<br />メンタルフィットネスが<br />向上しています。</>
+            ) : (
+              <>記録しました。<br />振り返りを<br />続けていますね。</>
+            )}
           </h2>
           <p className="text-zinc-500 text-sm leading-relaxed mb-6">
-            毎日振り返ることでエナジーを積み上げ、
-            あなただけにパーソナライズされた体験が得られます。
+            {isFirstToday
+              ? '毎日振り返ることでエナジーを積み上げ、あなただけにパーソナライズされた体験が得られます。'
+              : '複数回の記録も、あなたの内省の深さを示しています。'}
           </p>
           {mentorMsg && (
             <div className="bg-zinc-800/80 rounded-xl p-4 border border-zinc-700 mb-6">
@@ -91,7 +96,11 @@ function CompletionModal({
             transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
             className="w-40 h-40 rounded-full border-4 border-violet-500/60 flex flex-col items-center justify-center"
           >
-            <span className="text-violet-400 text-sm font-medium mb-1">＋20エナジー獲得！</span>
+            {isFirstToday ? (
+              <span className="text-violet-400 text-sm font-medium mb-1">＋20エナジー獲得！</span>
+            ) : (
+              <span className="text-zinc-500 text-sm font-medium mb-1">今日は記録済み</span>
+            )}
             <span className="text-4xl font-bold text-white tabular-nums">{energy}</span>
             <span className="text-zinc-500 text-xs mt-1">/ 100</span>
           </motion.div>
@@ -116,6 +125,7 @@ export default function NewEntryPage() {
   const [currentAnswer, setCurrentAnswer] = useState('')
   const [quickAnswers, setQuickAnswers] = useState({ mood: '', event: '', tomorrow: '' })
   const [energy, setEnergy] = useState(0)
+  const [isFirstToday, setIsFirstToday] = useState(true)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [savedAnalysis, setSavedAnalysis] = useState<EmotionAnalysis | null>(null)
 
@@ -219,6 +229,9 @@ export default function NewEntryPage() {
       }
     } catch {}
 
+    const todayKey = toDateKey(new Date())
+    const firstToday = !entries.some((e) => toDateKey(new Date(e.createdAt)) === todayKey)
+    setIsFirstToday(firstToday)
     const allEntries = [{ createdAt: new Date() } as (typeof entries)[0], ...entries]
     setEnergy(calculateEnergy(allEntries))
     setSavedId(id)
@@ -235,6 +248,7 @@ export default function NewEntryPage() {
           <CompletionModal
             energy={energy}
             mentorMsg={savedAnalysis ? getMentorMessage(savedAnalysis.dominant) : null}
+            isFirstToday={isFirstToday}
             onContinue={() => router.push(`/journal/${savedId}`)}
             onMentor={() => router.push('/mentor')}
           />
@@ -242,8 +256,8 @@ export default function NewEntryPage() {
       </AnimatePresence>
 
       <div className="max-w-xl mx-auto pt-12 px-4">
-        {/* Mode selector — only show in write phase */}
-        {(phase === 'write' || phase === 'loading') && (
+        {/* Mode selector — write phase か、最初のloading（turns未確定）のみ表示 */}
+        {(phase === 'write' || (phase === 'loading' && turns.length === 0)) && (
           <div className="grid grid-cols-3 gap-2 mb-10">
             {MODES.map(({ id, label, Icon }) => (
               <button
@@ -343,7 +357,7 @@ export default function NewEntryPage() {
               ))}
 
               <AnimatePresence>
-                {currentQuestion && (
+                {currentQuestion && phase !== 'loading' && (
                   <motion.div
                     key={currentQuestion}
                     initial={{ opacity: 0, x: -8 }}

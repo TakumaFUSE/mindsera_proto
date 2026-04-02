@@ -3,49 +3,58 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const client = new OpenAI()
 
-// 感情 → アートスタイルのヒントマッピング
-const EMOTION_STYLE: Record<string, string> = {
-  joy:          'warm golden light, soft sunburst, vibrant and uplifting',
-  trust:        'emerald green flowing shapes, calm and harmonious',
-  fear:         'deep indigo shadows, misty and ethereal',
-  surprise:     'bright electric blue bursts, dynamic and energetic',
-  sadness:      'cool blue watercolor wash, melancholic and soft',
-  disgust:      'muted earthy tones, abstract texture',
-  anger:        'crimson and ember tones, bold sharp strokes',
-  anticipation: 'amber orange horizon glow, hopeful and expansive',
+const EMOTION_MOOD: Record<string, string> = {
+  joy:          'warm, radiant, uplifting',
+  trust:        'calm, grounded, peaceful',
+  fear:         'tense, shadowy, uncertain',
+  surprise:     'electric, dramatic, vivid',
+  sadness:      'melancholic, soft, muted',
+  disgust:      'uneasy, murky, discordant',
+  anger:        'intense, turbulent, fiery',
+  anticipation: 'hopeful, expansive, glowing',
 }
 
 export async function POST(req: NextRequest) {
-  const { dominant, overall, weekly, weeklyDominant, weeklyOverall } = await req.json()
+  const { dominant, overall, content, weekly, weeklyDominant, weeklyOverall } = await req.json()
 
   let prompt: string
 
   if (weekly) {
     prompt = [
-      'A large abstract painting representing a week of emotions.',
-      `Primary emotion: ${weeklyDominant}.`,
-      `Overall feeling: ${weeklyOverall}.`,
-      'No text, no faces. Painterly, expressive, wide format.',
+      'Abstract expressionist panoramic painting, museum quality.',
+      `Dominant emotional journey: ${weeklyDominant}. ${EMOTION_MOOD[weeklyDominant] ?? ''}.`,
+      `The week felt like: ${weeklyOverall}.`,
+      'Show emotional transformation and layered complexity through color transitions and gestural forms.',
+      'No text, no figures, no recognizable objects. Pure abstraction.',
+      'Rich texture, bold expansive composition, gallery-worthy contemporary art.',
     ].join(' ')
   } else {
-    const styleHint = EMOTION_STYLE[dominant] ?? 'soft abstract colors, introspective mood'
+    const plainContent = content
+      ? content.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim().slice(0, 150)
+      : ''
+
+    const moodHint = EMOTION_MOOD[dominant] ?? 'contemplative, atmospheric'
+
     prompt = [
-      'Abstract digital painting,',
-      styleHint + ',',
-      'no text, no faces, no words, no letters,',
-      'minimalist composition, painterly texture,',
-      overall ? `mood: ${overall},` : '',
-      'square format, high contrast background',
-    ]
-      .filter(Boolean)
-      .join(' ')
+      'A cinematic digital painting that visually represents the following journal entry:',
+      plainContent ? `"${plainContent}"` : '',
+      `The emotional atmosphere is ${moodHint}.`,
+      overall ? `Overall feeling: ${overall}.` : '',
+      'Translate the subject matter and mood into a rich visual scene.',
+      'If the entry mentions food, show an evocative scene of that food.',
+      'If it mentions a place, show that place atmospherically.',
+      'If abstract thoughts, use symbolic landscapes or objects.',
+      'No human faces. No text or letters in the image.',
+      'Cinematic lighting, painterly texture, emotionally resonant.',
+    ].filter(Boolean).join(' ')
   }
 
   const response = await client.images.generate({
-    model: 'dall-e-2',
+    model: 'dall-e-3',
     prompt,
     n: 1,
-    size: '256x256',
+    size: '1024x1024',
+    quality: 'standard',
   })
 
   const url = response.data?.[0]?.url

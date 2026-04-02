@@ -104,6 +104,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         body: JSON.stringify({
           dominant: entry.emotionAnalysis.dominant,
           overall: entry.emotionAnalysis.overall,
+          content: entry.content,
         }),
       })
       if (!res.ok) throw new Error('生成失敗')
@@ -283,7 +284,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
               >
                 <div>
                   <p className="text-zinc-300 text-sm font-medium">AIアートを生成</p>
-                  <p className="text-zinc-600 text-xs mt-0.5">感情分析をもとに抽象画を生成します（約$0.016）</p>
+                  <p className="text-zinc-600 text-xs mt-0.5">感情分析をもとに抽象画を生成します（約$0.04）</p>
                 </div>
                 <button
                   onClick={handleGenerateArt}
