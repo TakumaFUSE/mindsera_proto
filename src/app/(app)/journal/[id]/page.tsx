@@ -1,12 +1,13 @@
 'use client'
 
 import { use, useState } from 'react'
-import { ArrowLeft, Pencil, Check, Sparkles, Loader2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Check, Sparkles, Loader2, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { JournalEditor } from '@/components/editor/JournalEditor'
 import { EmotionBubbles } from '@/components/emotions/EmotionBubbles'
 import { useJournalStore } from '@/lib/store'
+import { EmotionAnalysis } from '@/lib/types'
 
 function formatDate(date: Date) {
   return new Date(date).toLocaleDateString('ja-JP', {
@@ -22,6 +23,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
   const entry = useJournalStore((s) => s.getEntry(id))
   const updateEntry = useJournalStore((s) => s.updateEntry)
   const setArtUrl = useJournalStore((s) => s.setArtUrl)
+  const setEmotionAnalysis = useJournalStore((s) => s.setEmotionAnalysis)
 
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(entry?.title ?? '')
@@ -29,6 +31,29 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
   const [editWordCount, setEditWordCount] = useState(entry?.wordCount ?? 0)
   const [artLoading, setArtLoading] = useState(false)
   const [artError, setArtError] = useState<string | null>(null)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+
+  const handleAnalyze = async () => {
+    if (!entry || analysisLoading) return
+    setAnalysisLoading(true)
+    setAnalysisError(null)
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: entry.content }),
+      })
+      if (!res.ok) throw new Error()
+      const { summary, ...analysis }: EmotionAnalysis & { summary?: string } = await res.json()
+      setEmotionAnalysis(id, analysis)
+      if (summary) updateEntry(id, { summary })
+    } catch {
+      setAnalysisError('分析に失敗しました。もう一度試してください。')
+    } finally {
+      setAnalysisLoading(false)
+    }
+  }
 
   const handleGenerateArt = async () => {
     if (!entry?.emotionAnalysis || artLoading) return
@@ -132,14 +157,31 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
       </div>
 
       {/* AI Summary */}
-      {entry.summary && !isEditing && (
+      {!isEditing && (
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 mb-6">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center justify-between gap-2 mb-2">
             <span className="text-xs bg-violet-500/20 text-violet-300 border border-violet-500/30 px-2 py-0.5 rounded-full font-medium">
               AI サマリー
             </span>
+            <button
+              onClick={handleAnalyze}
+              disabled={analysisLoading}
+              className="flex items-center gap-1 text-xs text-zinc-600 hover:text-zinc-400 transition-colors disabled:opacity-40"
+            >
+              {analysisLoading ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              {entry.emotionAnalysis ? '再分析' : '分析する'}
+            </button>
           </div>
-          <p className="text-zinc-300 text-sm leading-relaxed italic">{entry.summary}</p>
+          {entry.summary ? (
+            <p className="text-zinc-300 text-sm leading-relaxed italic">{entry.summary}</p>
+          ) : (
+            <p className="text-zinc-600 text-sm">まだ分析されていません</p>
+          )}
+          {analysisError && <p className="text-red-400 text-xs mt-2">{analysisError}</p>}
         </div>
       )}
 

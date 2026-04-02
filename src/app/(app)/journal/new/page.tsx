@@ -84,6 +84,7 @@ function CompletionModal({ streak, onContinue }: { streak: number; onContinue: (
 export default function NewEntryPage() {
   const router = useRouter()
   const addEntry = useJournalStore((s) => s.addEntry)
+  const updateEntry = useJournalStore((s) => s.updateEntry)
   const setEmotionAnalysis = useJournalStore((s) => s.setEmotionAnalysis)
   const entries = useJournalStore((s) => s.entries)
 
@@ -169,8 +170,9 @@ export default function NewEntryPage() {
         body: JSON.stringify({ content }),
       })
       if (res.ok) {
-        const analysis: EmotionAnalysis = await res.json()
+        const { summary, ...analysis }: EmotionAnalysis & { summary?: string } = await res.json()
         setEmotionAnalysis(id, analysis)
+        if (summary) updateEntry(id, { summary })
       }
     } catch {}
 

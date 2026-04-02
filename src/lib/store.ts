@@ -56,6 +56,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
         title: entry.title,
         content: entry.content,
         word_count: entry.wordCount,
+        summary: entry.summary ?? null,
         framework_id: entry.frameworkId ?? null,
         created_at: newEntry.createdAt.toISOString(),
         updated_at: newEntry.createdAt.toISOString(),
