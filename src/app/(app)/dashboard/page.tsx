@@ -6,10 +6,11 @@ import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
 import { calcMindsetScore } from '@/lib/mindset-score'
 import { calcStreak, toDateKey, calculateEnergy } from '@/lib/streak'
 import { getMentorMessage } from '@/lib/personas'
-import { JournalEntry } from '@/lib/types'
+import { JournalEntry, PlutchikEmotion } from '@/lib/types'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { PenLine, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { PenLine, Sparkles, Loader2 } from 'lucide-react'
 
 const DAY_LABELS = ['日', '月', '火', '水', '木', '金', '土']
 
@@ -83,6 +84,102 @@ function getPastEntry(entries: JournalEntry[]): PastEntry | null {
   return { entry: found, label, snippet }
 }
 
+function getThisMonday(): Date {
+  const d = new Date()
+  const day = d.getDay()
+  const diff = day === 0 ? 6 : day - 1
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - diff)
+  return d
+}
+
+function getWeeklyOverall(dominant: PlutchikEmotion): string {
+  if (dominant === 'joy' || dominant === 'trust') return '充実した1週間'
+  if (dominant === 'fear' || dominant === 'sadness') return '内省が深まった週'
+  if (dominant === 'anger') return 'エネルギッシュな週'
+  if (dominant === 'anticipation') return '期待に満ちた週'
+  return '変化のある週'
+}
+
+function WeeklyArtCard({
+  weeklyDominant,
+  weeklyOverall,
+  cachedUrl,
+  onGenerated,
+}: {
+  weeklyDominant: PlutchikEmotion
+  weeklyOverall: string
+  cachedUrl: string | null
+  onGenerated: (url: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+  const [url, setUrl] = useState<string | null>(cachedUrl)
+
+  const generate = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/art', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weekly: true, weeklyDominant, weeklyOverall }),
+      })
+      if (res.ok) {
+        const { url: newUrl } = await res.json()
+        setUrl(newUrl)
+        onGenerated(newUrl)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-6"
+    >
+      <div className="flex items-center justify-between p-4 pb-3">
+        <span className="text-zinc-500 text-xs">🎨 今週のアート</span>
+        <span className="text-zinc-400 text-xs">{weeklyOverall}</span>
+      </div>
+
+      {url ? (
+        <>
+          <img src={url} alt="今週のアート" className="w-full h-40 object-cover" />
+          <div className="flex items-center p-3">
+            <button
+              onClick={() => window.open(url, '_blank')}
+              className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors"
+            >
+              壁紙にする
+            </button>
+            <button
+              onClick={generate}
+              disabled={loading}
+              className="text-zinc-600 text-xs ml-auto hover:text-zinc-400 transition-colors disabled:opacity-40"
+            >
+              {loading ? '生成中…' : '再生成'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="bg-zinc-800 h-40 flex items-center justify-center">
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-lg px-4 py-2 transition-colors disabled:opacity-60"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading ? '生成中…' : '生成する'}
+          </button>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 function MindsetWelcomeCard() {
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
@@ -128,6 +225,36 @@ export default function DashboardPage() {
   const mentorMsg = latestAnalysis ? getMentorMessage(latestAnalysis.dominant) : null
   const pastEntry = getPastEntry(entries)
 
+  const weeklyArtUrl = useJournalStore((s) => s.weeklyArtUrl)
+  const weeklyArtGeneratedAt = useJournalStore((s) => s.weeklyArtGeneratedAt)
+  const setWeeklyArt = useJournalStore((s) => s.setWeeklyArt)
+
+  const monday = getThisMonday()
+  const weeklyEntries = entries.filter(
+    (e) => e.emotionAnalysis && new Date(e.createdAt) >= monday
+  )
+
+  let weeklyDominant: PlutchikEmotion | null = null
+  if (weeklyEntries.length > 0) {
+    const totals: Partial<Record<PlutchikEmotion, { sum: number; count: number }>> = {}
+    for (const e of weeklyEntries) {
+      for (const d of e.emotionAnalysis!.emotions) {
+        if (!totals[d.type]) totals[d.type] = { sum: 0, count: 0 }
+        totals[d.type]!.sum += d.score
+        totals[d.type]!.count++
+      }
+    }
+    weeklyDominant = (Object.entries(totals) as [PlutchikEmotion, { sum: number; count: number }][])
+      .map(([type, { sum, count }]) => ({ type, avg: sum / count }))
+      .sort((a, b) => b.avg - a.avg)[0]?.type ?? null
+  }
+
+  const weeklyOverall = weeklyDominant ? getWeeklyOverall(weeklyDominant) : ''
+  const isCacheValid = weeklyArtGeneratedAt
+    ? new Date(weeklyArtGeneratedAt) >= monday
+    : false
+  const cachedWeeklyUrl = isCacheValid ? weeklyArtUrl : null
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
@@ -135,6 +262,16 @@ export default function DashboardPage() {
         <p className="text-zinc-400 text-sm mb-1">{formatHeaderDate()}</p>
         <h1 className="text-2xl font-bold text-white">{getGreeting()}</h1>
       </div>
+
+      {/* Weekly Art */}
+      {weeklyDominant && (
+        <WeeklyArtCard
+          weeklyDominant={weeklyDominant}
+          weeklyOverall={weeklyOverall}
+          cachedUrl={cachedWeeklyUrl}
+          onGenerated={setWeeklyArt}
+        />
+      )}
 
       {/* Mindset Score or Welcome */}
       {mindsetScore ? (

@@ -16,20 +16,30 @@ const EMOTION_STYLE: Record<string, string> = {
 }
 
 export async function POST(req: NextRequest) {
-  const { dominant, overall } = await req.json()
+  const { dominant, overall, weekly, weeklyDominant, weeklyOverall } = await req.json()
 
-  const styleHint = EMOTION_STYLE[dominant] ?? 'soft abstract colors, introspective mood'
+  let prompt: string
 
-  const prompt = [
-    'Abstract digital painting,',
-    styleHint + ',',
-    'no text, no faces, no words, no letters,',
-    'minimalist composition, painterly texture,',
-    overall ? `mood: ${overall},` : '',
-    'square format, high contrast background',
-  ]
-    .filter(Boolean)
-    .join(' ')
+  if (weekly) {
+    prompt = [
+      'A large abstract painting representing a week of emotions.',
+      `Primary emotion: ${weeklyDominant}.`,
+      `Overall feeling: ${weeklyOverall}.`,
+      'No text, no faces. Painterly, expressive, wide format.',
+    ].join(' ')
+  } else {
+    const styleHint = EMOTION_STYLE[dominant] ?? 'soft abstract colors, introspective mood'
+    prompt = [
+      'Abstract digital painting,',
+      styleHint + ',',
+      'no text, no faces, no words, no letters,',
+      'minimalist composition, painterly texture,',
+      overall ? `mood: ${overall},` : '',
+      'square format, high contrast background',
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
 
   const response = await client.images.generate({
     model: 'dall-e-2',

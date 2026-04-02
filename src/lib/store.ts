@@ -10,10 +10,16 @@ interface JournalStore {
   setEmotionAnalysis: (id: string, analysis: EmotionAnalysis) => void
   setArtUrl: (id: string, url: string) => void
   getEntry: (id: string) => JournalEntry | undefined
+  weeklyArtUrl: string | null
+  weeklyArtGeneratedAt: string | null
+  setWeeklyArt: (url: string) => void
 }
 
 export const useJournalStore = create<JournalStore>((set, get) => ({
   entries: [],
+  weeklyArtUrl: null,
+  weeklyArtGeneratedAt: null,
+  setWeeklyArt: (url) => set({ weeklyArtUrl: url, weeklyArtGeneratedAt: new Date().toISOString() }),
 
   loadEntries: async () => {
     const supabase = createClient()
