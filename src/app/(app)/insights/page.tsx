@@ -13,7 +13,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { useJournalStore } from '@/lib/store'
-import { EMOTION_META, PlutchikEmotion } from '@/lib/types'
+import { EMOTION_META, PlutchikEmotion, JournalEntry } from '@/lib/types'
 
 type Range = '7' | '30' | 'all'
 
@@ -25,6 +25,73 @@ const RANGE_LABELS: Record<Range, string> = {
 
 // トレンドチャートに表示する感情（多すぎると見づらいので上位4つ）
 const TREND_EMOTIONS: PlutchikEmotion[] = ['joy', 'sadness', 'fear', 'anticipation']
+
+interface Nudge {
+  message: string
+  buttonLabel: string
+  href: string
+}
+
+function calcNudge(entries: JournalEntry[]): Nudge | null {
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const recent = entries.filter(
+    (e) => e.emotionAnalysis && new Date(e.createdAt).getTime() >= cutoff
+  )
+  if (recent.length === 0) return null
+
+  const avg = (emotion: PlutchikEmotion) => {
+    const scores = recent.flatMap((e) =>
+      e.emotionAnalysis!.emotions.filter((d) => d.type === emotion).map((d) => d.score)
+    )
+    return scores.length === 0 ? 0 : scores.reduce((a, b) => a + b, 0) / scores.length
+  }
+
+  if (avg('fear') >= 0.5) return {
+    message: '恐れの感情が高まっています。CBTコーチと一緒に、思考のパターンを整理してみませんか？',
+    buttonLabel: 'CBTコーチに相談する',
+    href: '/mentor',
+  }
+  if (avg('sadness') >= 0.5) return {
+    message: '悲しみの感情が続いています。心理士と気持ちを整理してみましょう。',
+    buttonLabel: '心理士に話す',
+    href: '/mentor',
+  }
+  if (avg('anger') >= 0.4) return {
+    message: '怒りを感じる場面が多いようです。ストア哲学の視点で、コントロールできることに目を向けてみましょう。',
+    buttonLabel: 'ストア哲学者と話す',
+    href: '/mentor',
+  }
+  if (avg('joy') >= 0.6 && avg('anticipation') <= 0.3) return {
+    message: '喜びを感じていますが、期待感が少し低め。いきがいフレームワークで、やりがいの方向性を確認してみませんか？',
+    buttonLabel: 'いきがいを探る',
+    href: '/frameworks',
+  }
+  return {
+    message: '今週も内省を続けています。デイリーレビューフレームワークで、週を振り返ってみましょう。',
+    buttonLabel: '週を振り返る',
+    href: '/frameworks',
+  }
+}
+
+function NudgeCard({ nudge, onNavigate }: { nudge: Nudge; onNavigate: (href: string) => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-violet-950/50 border border-violet-800/50 rounded-2xl p-5 mb-6"
+    >
+      <p className="text-violet-400 text-xs">✦ 今週のナッジ</p>
+      <p className="text-zinc-200 text-sm mt-2 leading-relaxed">{nudge.message}</p>
+      <button
+        onClick={() => onNavigate(nudge.href)}
+        className="mt-4 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-lg px-4 py-2 transition-colors"
+      >
+        {nudge.buttonLabel}
+      </button>
+    </motion.div>
+  )
+}
 
 export default function InsightsPage() {
   const entries = useJournalStore((s) => s.entries)
@@ -85,12 +152,17 @@ export default function InsightsPage() {
     )
   }, [filteredEntries, selectedEmotion])
 
+  const nudge = useMemo(() => calcNudge(entries), [entries])
+
   const bubbleSize = (avg: number) => Math.round(44 + avg * 52)
 
   const hasData = filteredEntries.length > 0
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* 今週のナッジ */}
+      {nudge && <NudgeCard nudge={nudge} onNavigate={router.push} />}
+
       {/* ヘッダー */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
