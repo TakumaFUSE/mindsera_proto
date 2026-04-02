@@ -6,11 +6,11 @@ import { LayoutDashboard, PenLine, BarChart2, BookOpen, MessageCircle } from 'lu
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { label: 'ホーム',           href: '/dashboard',   icon: LayoutDashboard },
-  { label: '書く',             href: '/journal/new', icon: PenLine },
-  { label: 'インサイト',       href: '/insights',    icon: BarChart2 },
-  { label: 'フレームワーク',   href: '/frameworks',  icon: BookOpen },
-  { label: 'メンター',         href: '/mentor',      icon: MessageCircle },
+  { label: 'ホーム',         href: '/dashboard',   icon: LayoutDashboard, isCenterAction: false },
+  { label: 'インサイト',     href: '/insights',    icon: BarChart2,       isCenterAction: false },
+  { label: '書く',           href: '/journal/new', icon: PenLine,         isCenterAction: true  },
+  { label: 'メンター',       href: '/mentor',      icon: MessageCircle,   isCenterAction: false },
+  { label: 'フレームワーク', href: '/frameworks',  icon: BookOpen,        isCenterAction: false },
 ]
 
 export function BottomNav() {
@@ -23,6 +23,21 @@ export function BottomNav() {
         const isActive =
           pathname === item.href ||
           (item.href !== '/dashboard' && pathname.startsWith(item.href))
+
+        if (item.isCenterAction) {
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex flex-col items-center gap-1 py-3 flex-1"
+            >
+              <span className="w-11 h-11 -mt-4 rounded-full bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-600/30">
+                <Icon className="w-5 h-5" />
+              </span>
+              <span className="text-[10px] leading-none text-violet-400">{item.label}</span>
+            </Link>
+          )
+        }
 
         return (
           <Link

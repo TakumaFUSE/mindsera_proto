@@ -17,10 +17,9 @@ import { useRouter } from 'next/navigation'
 
 const navItems = [
   { label: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard, enabled: true },
-  { label: '新規エントリ', href: '/journal/new', icon: PenLine, enabled: true },
-  { label: 'インサイト', href: '/insights', icon: BarChart2, enabled: true },
-  { label: 'フレームワーク', href: '/frameworks', icon: BookOpen, enabled: true },
-  { label: 'メンター', href: '/mentor', icon: MessageCircle, enabled: true },
+  { label: 'インサイト',     href: '/insights',  icon: BarChart2,       enabled: true },
+  { label: 'フレームワーク', href: '/frameworks', icon: BookOpen,       enabled: true },
+  { label: 'メンター',       href: '/mentor',    icon: MessageCircle,   enabled: true },
 ]
 
 export function Sidebar() {
@@ -41,6 +40,17 @@ export function Sidebar() {
         <Sparkles className="w-4 h-4 text-violet-400" />
         <span className="text-xl font-bold text-white tracking-tight">mindsolo</span>
       </Link>
+
+      {/* Write CTA */}
+      <div className="px-3 mb-4">
+        <Link
+          href="/journal/new"
+          className="flex items-center justify-center gap-2 w-full bg-violet-600 hover:bg-violet-500 text-white rounded-xl py-2.5 text-sm font-medium transition-colors"
+        >
+          <PenLine className="w-4 h-4" />
+          エントリを書く
+        </Link>
+      </div>
 
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1">
