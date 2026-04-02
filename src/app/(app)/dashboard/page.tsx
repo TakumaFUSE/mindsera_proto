@@ -6,6 +6,7 @@ import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
 import { calcMindsetScore } from '@/lib/mindset-score'
 import { calcStreak, toDateKey, calculateEnergy } from '@/lib/streak'
 import { getMentorMessage } from '@/lib/personas'
+import { JournalEntry } from '@/lib/types'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { PenLine, Sparkles } from 'lucide-react'
@@ -26,6 +27,60 @@ function formatHeaderDate() {
     day: 'numeric',
     weekday: 'long',
   })
+}
+
+interface PastEntry {
+  entry: JournalEntry
+  label: string
+  snippet: string
+}
+
+function getPastEntry(entries: JournalEntry[]): PastEntry | null {
+  if (entries.length <= 1) return null
+
+  const now = Date.now()
+  const DAY = 24 * 60 * 60 * 1000
+
+  const daysDiff = (e: JournalEntry) =>
+    Math.round((now - new Date(e.createdAt).getTime()) / DAY)
+
+  // Exclude the most recent entry (entries[0])
+  const candidates = entries.slice(1)
+
+  let found: JournalEntry | null = null
+  let label = ''
+
+  // 1. ~30 days ago (±2 days)
+  const around30 = candidates
+    .filter((e) => Math.abs(daysDiff(e) - 30) <= 2)
+    .sort((a, b) => Math.abs(daysDiff(a) - 30) - Math.abs(daysDiff(b) - 30))
+  if (around30.length > 0) {
+    found = around30[0]
+    label = '1ヶ月前のあなたより'
+  }
+
+  // 2. ~7 days ago (±1 day)
+  if (!found) {
+    const around7 = candidates
+      .filter((e) => Math.abs(daysDiff(e) - 7) <= 1)
+      .sort((a, b) => Math.abs(daysDiff(a) - 7) - Math.abs(daysDiff(b) - 7))
+    if (around7.length > 0) {
+      found = around7[0]
+      label = '1週間前のあなたより'
+    }
+  }
+
+  // 3. Oldest entry
+  if (!found) {
+    found = candidates[candidates.length - 1]
+    const days = daysDiff(found)
+    label = `${days}日前のあなたより`
+  }
+
+  const plain = found.content.replace(/<[^>]+>/g, '')
+  const snippet = plain.length > 80 ? plain.slice(0, 80) + '...' : plain
+
+  return { entry: found, label, snippet }
 }
 
 function MindsetWelcomeCard() {
@@ -71,6 +126,7 @@ export default function DashboardPage() {
   const mindsetScore = entries.length > 0 ? calcMindsetScore(entries, streak) : null
   const latestAnalysis = entries[0]?.emotionAnalysis ?? null
   const mentorMsg = latestAnalysis ? getMentorMessage(latestAnalysis.dominant) : null
+  const pastEntry = getPastEntry(entries)
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -179,6 +235,35 @@ export default function DashboardPage() {
           {entries.length === 0 ? '最初のエントリを書いてみよう' : '今日のエントリを書く…'}
         </span>
       </Link>
+
+      {/* 過去の自分から */}
+      {pastEntry && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 mb-6"
+        >
+          <p className="text-zinc-500 text-xs">🕰 {pastEntry.label}</p>
+          <p className="text-zinc-300 text-sm mt-3 italic leading-relaxed">
+            &ldquo;{pastEntry.snippet}&rdquo;
+          </p>
+          <div className="flex items-center justify-end gap-3 mt-4">
+            <Link
+              href={`/journal/${pastEntry.entry.id}`}
+              className="text-zinc-500 text-xs underline hover:text-zinc-300 transition-colors"
+            >
+              当時のエントリを見る
+            </Link>
+            <Link
+              href="/journal/new"
+              className="bg-violet-600 hover:bg-violet-500 text-white text-xs rounded-lg px-3 py-1.5 transition-colors"
+            >
+              返事を書く
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
       {/* Entry list */}
       <div>
