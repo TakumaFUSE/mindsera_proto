@@ -12,11 +12,14 @@ import { EmotionAnalysis, PlutchikEmotion } from '@/lib/types'
 import { getMentorMessage } from '@/lib/personas'
 
 function formatDate(date: Date) {
-  return new Date(date).toLocaleDateString('ja-JP', {
+  return new Date(date).toLocaleString('ja-JP', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     weekday: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
   })
 }
 

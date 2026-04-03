@@ -9,10 +9,13 @@ function stripHtml(html: string): string {
 }
 
 function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString('ja-JP', {
+  return new Date(date).toLocaleString('ja-JP', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
   })
 }
 
