@@ -17,7 +17,7 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 flex items-center z-40 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-800 flex items-center z-40 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {navItems.map((item) => {
         const Icon = item.icon
         const isActive =

@@ -7,6 +7,16 @@
   }
 }
 
+/* BottomNav safe area: mobile gets nav height + iOS home indicator, desktop gets standard padding */
+.app-main-pb {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .app-main-pb {
+    padding-bottom: 2rem;
+  }
+}
+
 .ProseMirror {
   outline: none;
   min-height: 400px;
