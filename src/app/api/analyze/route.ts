@@ -72,7 +72,18 @@ export async function POST(req: NextRequest) {
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : '{}'
   const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  const analysis: EmotionAnalysis = JSON.parse(jsonMatch ? jsonMatch[0] : '{}')
+  const jsonStr = jsonMatch ? jsonMatch[0] : '{}'
+
+  let analysis: EmotionAnalysis
+  try {
+    analysis = JSON.parse(jsonStr)
+  } catch {
+    // LLMが文字列値内に生の改行を出力した場合、文字列リテラル内だけ修正する
+    const sanitized = jsonStr.replace(/"(?:[^"\\]|\\.)*"/g, (m) =>
+      m.replace(/\n/g, '\\n').replace(/\r/g, '\\r')
+    )
+    analysis = JSON.parse(sanitized)
+  }
 
   return NextResponse.json(analysis)
 }
