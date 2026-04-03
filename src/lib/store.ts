@@ -41,6 +41,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       wordCount: row.word_count,
       summary: row.summary ?? undefined,
       artUrl: row.art_url ?? undefined,
+      imageUrls: row.image_urls?.length ? row.image_urls : undefined,
       emotionAnalysis: row.emotion_analysis ?? undefined,
       frameworkId: row.framework_id ?? undefined,
     }))
@@ -63,6 +64,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
         content: entry.content,
         word_count: entry.wordCount,
         summary: entry.summary ?? null,
+        image_urls: entry.imageUrls ?? null,
         framework_id: entry.frameworkId ?? null,
         created_at: newEntry.createdAt.toISOString(),
         updated_at: newEntry.createdAt.toISOString(),
@@ -82,6 +84,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     if (updates.content !== undefined) dbUpdates.content = updates.content
     if (updates.wordCount !== undefined) dbUpdates.word_count = updates.wordCount
     if (updates.summary !== undefined) dbUpdates.summary = updates.summary
+    if (updates.imageUrls !== undefined) dbUpdates.image_urls = updates.imageUrls
 
     ;(async () => {
       const supabase = createClient()

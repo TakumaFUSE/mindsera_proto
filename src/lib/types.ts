@@ -7,6 +7,7 @@ export interface JournalEntry {
   summary?: string
   emotionAnalysis?: EmotionAnalysis
   artUrl?: string
+  imageUrls?: string[]
   frameworkId?: string
 }
 

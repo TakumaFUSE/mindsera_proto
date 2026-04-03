@@ -8,6 +8,7 @@ import { useJournalStore } from '@/lib/store'
 import { EmotionAnalysis } from '@/lib/types'
 import { calculateEnergy, toDateKey } from '@/lib/streak'
 import { getMentorMessage, MentorMessage } from '@/lib/personas'
+import { ImageUploader } from '@/components/editor/ImageUploader'
 
 type Mode = 'free' | 'deep' | 'quick'
 type Phase = 'write' | 'loading' | 'deepen' | 'saving' | 'complete'
@@ -124,6 +125,7 @@ export default function NewEntryPage() {
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [currentAnswer, setCurrentAnswer] = useState('')
   const [quickAnswers, setQuickAnswers] = useState({ mood: '', event: '', tomorrow: '' })
+  const [attachedImages, setAttachedImages] = useState<string[]>([])
   const [energy, setEnergy] = useState(0)
   const [isFirstToday, setIsFirstToday] = useState(true)
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -213,7 +215,7 @@ export default function NewEntryPage() {
       : text.trim()
     ).slice(0, 40) || 'New Entry'
 
-    const id = addEntry({ title, content, wordCount })
+    const id = addEntry({ title, content, wordCount, imageUrls: attachedImages.length > 0 ? attachedImages : undefined })
 
     try {
       const res = await fetch('/api/analyze', {
@@ -291,8 +293,11 @@ export default function NewEntryPage() {
                 onChange={(e) => setText(e.target.value)}
                 placeholder="今日、何を考えていますか..."
                 rows={6}
-                className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-12"
+                className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-8"
               />
+              <div className="mb-8">
+                <ImageUploader images={attachedImages} onChange={setAttachedImages} />
+              </div>
               <button
                 onClick={handleFinish}
                 disabled={isLoading || !text.trim()}
@@ -319,8 +324,11 @@ export default function NewEntryPage() {
                 onChange={(e) => setText(e.target.value)}
                 placeholder="まず思ったことを書いてみましょう..."
                 rows={4}
-                className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-12"
+                className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-8"
               />
+              <div className="mb-8">
+                <ImageUploader images={attachedImages} onChange={setAttachedImages} />
+              </div>
               <button
                 onClick={handleMainButton}
                 disabled={isLoading}
@@ -376,8 +384,14 @@ export default function NewEntryPage() {
                   onChange={(e) => setCurrentAnswer(e.target.value)}
                   placeholder="ここに書く..."
                   rows={4}
-                  className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-12"
+                  className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-8"
                 />
+              )}
+
+              {phase !== 'loading' && (
+                <div className="mb-8">
+                  <ImageUploader images={attachedImages} onChange={setAttachedImages} />
+                </div>
               )}
 
               <div className="flex items-center gap-6">
@@ -428,10 +442,13 @@ export default function NewEntryPage() {
                 </div>
               ))}
 
+              <div className="mt-4 mb-4">
+                <ImageUploader images={attachedImages} onChange={setAttachedImages} />
+              </div>
               <button
                 onClick={handleFinish}
                 disabled={isLoading || Object.values(quickAnswers).every((v) => !v.trim())}
-                className="flex items-center gap-2 w-fit px-8 py-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white font-semibold rounded-full text-base transition-colors mt-4"
+                className="flex items-center gap-2 w-fit px-8 py-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white font-semibold rounded-full text-base transition-colors"
               >
                 {phase === 'saving' ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />保存中…</>

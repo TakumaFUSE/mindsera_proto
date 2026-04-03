@@ -6,6 +6,7 @@ import { ArrowLeft, Pencil, Check, Sparkles, Loader2, RefreshCw } from 'lucide-r
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { JournalEditor } from '@/components/editor/JournalEditor'
+import { ImageUploader } from '@/components/editor/ImageUploader'
 import { EmotionBubbles } from '@/components/emotions/EmotionBubbles'
 import { useJournalStore } from '@/lib/store'
 import { EmotionAnalysis, PlutchikEmotion } from '@/lib/types'
@@ -70,6 +71,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
   const [editTitle, setEditTitle] = useState(entry?.title ?? '')
   const [editContent, setEditContent] = useState(entry?.content ?? '')
   const [editWordCount, setEditWordCount] = useState(entry?.wordCount ?? 0)
+  const [editImageUrls, setEditImageUrls] = useState<string[]>(entry?.imageUrls ?? [])
   const [artLoading, setArtLoading] = useState(false)
   const [artError, setArtError] = useState<string | null>(null)
   const [analysisLoading, setAnalysisLoading] = useState(false)
@@ -136,6 +138,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
       title: editTitle.trim() || 'タイトルなし',
       content: editContent,
       wordCount: editWordCount,
+      imageUrls: editImageUrls.length > 0 ? editImageUrls : undefined,
     })
     setIsEditing(false)
   }
@@ -144,6 +147,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
     setEditTitle(entry.title)
     setEditContent(entry.content)
     setEditWordCount(entry.wordCount)
+    setEditImageUrls(entry.imageUrls ?? [])
     setIsEditing(true)
   }
 
@@ -209,6 +213,27 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         onChange={isEditing ? (html, wc) => { setEditContent(html); setEditWordCount(wc) } : undefined}
         editable={isEditing}
       />
+
+      {/* 添付画像 */}
+      {isEditing ? (
+        <div className="mt-6 mb-6">
+          <ImageUploader images={editImageUrls} onChange={setEditImageUrls} />
+        </div>
+      ) : entry.imageUrls && entry.imageUrls.length > 0 ? (
+        <div className="mt-6 mb-6">
+          <div className={`grid gap-2 ${entry.imageUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            {entry.imageUrls.map((url) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={url}
+                src={url}
+                alt=""
+                className="w-full rounded-xl object-cover max-h-80"
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* AIサマリー */}
       {!isEditing && (

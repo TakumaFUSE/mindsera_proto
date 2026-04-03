@@ -78,9 +78,13 @@ export async function POST(req: NextRequest) {
   try {
     analysis = JSON.parse(jsonStr)
   } catch {
-    // LLMが文字列値内に生の改行を出力した場合、文字列リテラル内だけ修正する
-    const sanitized = jsonStr.replace(/"(?:[^"\\]|\\.)*"/g, (m) =>
-      m.replace(/\n/g, '\\n').replace(/\r/g, '\\r')
+    // LLMが文字列値内に生の改行・制御文字を出力した場合、文字列リテラル内だけ修正する
+    // sフラグ（dotall）で改行を含む文字列にもマッチさせる
+    const sanitized = jsonStr.replace(/"(?:[^"\\]|\\.)*"/gs, (m) =>
+      m
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t')
     )
     analysis = JSON.parse(sanitized)
   }
