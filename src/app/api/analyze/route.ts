@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   } catch {
     // LLMが文字列値内に生の改行・制御文字を出力した場合、文字列リテラル内だけ修正する
     // sフラグ（dotall）で改行を含む文字列にもマッチさせる
-    const sanitized = jsonStr.replace(/"(?:[^"\\]|\\.)*"/gs, (m) =>
+    const sanitized = jsonStr.replace(/"(?:[^"\\]|\\[\s\S]|\n|\r|\t)*"/g, (m) =>
       m
         .replace(/\n/g, '\\n')
         .replace(/\r/g, '\\r')
