@@ -133,11 +133,17 @@ export default function NewEntryPage() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const answerRef = useRef<HTMLTextAreaElement>(null)
+  const currentQuestionRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { textareaRef.current?.focus() }, [])
   useEffect(() => {
-    if (phase === 'deepen') answerRef.current?.focus()
-  }, [phase, turns.length])
+    if (phase === 'deepen') {
+      answerRef.current?.focus()
+      setTimeout(() => {
+        currentQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 250)
+    }
+  }, [phase, turns.length, currentQuestion])
 
   const handleModeChange = (newMode: Mode) => {
     setMode(newMode)
@@ -355,38 +361,42 @@ export default function NewEntryPage() {
 
               {turns.map((turn, i) => (
                 <div key={i}>
-                  <div className="border-l-4 border-violet-500 pl-5 mb-6">
-                    <p className="text-violet-400 text-lg leading-relaxed">{turn.question}</p>
+                  <div className="border-l-2 border-violet-800 pl-4 mb-4">
+                    <p className="text-violet-500 text-sm leading-relaxed">{turn.question}</p>
                   </div>
-                  <p className="text-2xl text-white leading-relaxed mb-8 whitespace-pre-wrap">
+                  <p className="text-base text-zinc-400 leading-relaxed mb-6 whitespace-pre-wrap">
                     {turn.answer}
                   </p>
                 </div>
               ))}
 
               <AnimatePresence>
-                {currentQuestion && phase !== 'loading' && (
+                {currentQuestion && (
                   <motion.div
+                    ref={currentQuestionRef}
                     key={currentQuestion}
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="border-l-4 border-violet-500 pl-5 mb-8"
                   >
-                    <p className="text-violet-400 text-lg leading-relaxed">{currentQuestion}</p>
+                    {phase === 'loading' ? (
+                      <p className="text-violet-400 text-lg leading-relaxed opacity-50">{currentQuestion}</p>
+                    ) : (
+                      <p className="text-violet-400 text-lg leading-relaxed">{currentQuestion}</p>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {phase !== 'loading' && (
-                <textarea
-                  ref={answerRef}
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  placeholder="ここに書く..."
-                  rows={4}
-                  className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-8"
-                />
-              )}
+              <textarea
+                ref={answerRef}
+                value={currentAnswer}
+                onChange={(e) => setCurrentAnswer(e.target.value)}
+                placeholder={phase === 'loading' ? '' : 'ここに書く...'}
+                disabled={phase === 'loading'}
+                rows={4}
+                className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-8 disabled:opacity-0"
+              />
 
               {phase !== 'loading' && (
                 <div className="mb-8">
@@ -394,7 +404,7 @@ export default function NewEntryPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-6">
+              <div className="flex flex-wrap items-center gap-4">
                 <button
                   onClick={hasAnswer ? handleGoDeeper : handleRefresh}
                   disabled={isLoading}
