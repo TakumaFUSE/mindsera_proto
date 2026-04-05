@@ -9,6 +9,12 @@ export interface JournalEntry {
   artUrl?: string
   imageUrls?: string[]
   frameworkId?: string
+  location?: {
+    latitude: number
+    longitude: number
+    label?: string
+  }
+  topics?: string[]
 }
 
 // Plutchik の8基本感情
@@ -35,6 +41,7 @@ export interface EmotionAnalysis {
   dominant: PlutchikEmotion
   overall: string  // 全体的な感情状態の一言説明
   analysisText: string  // AIからの詳細なフィードバック文
+  topics?: string[]
 }
 
 export const EMOTION_META: Record<PlutchikEmotion, { label: string; color: string; bg: string }> = {

@@ -13,11 +13,26 @@ interface Turn {
 }
 
 export async function POST(req: NextRequest) {
-  const { text, conversation }: { text: string; conversation?: Turn[] } = await req.json()
+  const { text, conversation, closing }: { text: string; conversation?: Turn[]; closing?: boolean } = await req.json()
 
   const isPrompt = !text || !text.trim()
 
-  const systemPrompt = isPrompt
+  const systemPrompt = closing
+    ? `あなたは熟練のジャーナリングコーチです。
+ユーザーとの深い対話が一区切りつきました。
+これまでの会話全体を振り返り、ユーザーが今日の内省を
+締めくくるための最後の問いかけを1つだけ生成してください。
+
+## 問いかけの方向性
+- 今日の対話で見えてきたことを統合する問い
+- 「今日の気づきを一言で表すなら？」のような収束的な問い
+- 明日以降のアクションにつながる問い
+- 会話を肯定的に締めくくるトーン
+
+## 形式
+- 20〜40文字の日本語の質問文のみ（前置き不要）
+- 「？」で終わること`
+    : isPrompt
     ? `あなたは熟練のジャーナリングコーチです。
 ユーザーが今日のジャーナリングを始めるための、内省を促すオープンな問いかけを1つ生成してください。
 

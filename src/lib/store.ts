@@ -33,6 +33,12 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
 
     if (!data) return
 
+    // NOTE: Supabaseテーブルに以下のカラムが必要です:
+    // ALTER TABLE journal_entries
+    //   ADD COLUMN IF NOT EXISTS latitude double precision,
+    //   ADD COLUMN IF NOT EXISTS longitude double precision,
+    //   ADD COLUMN IF NOT EXISTS location_label text,
+    //   ADD COLUMN IF NOT EXISTS topics text[];
     const entries: JournalEntry[] = data.map((row) => ({
       id: row.id,
       title: row.title,
@@ -44,6 +50,10 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       imageUrls: row.image_urls?.length ? row.image_urls : undefined,
       emotionAnalysis: row.emotion_analysis ?? undefined,
       frameworkId: row.framework_id ?? undefined,
+      location: row.latitude != null && row.longitude != null
+        ? { latitude: row.latitude, longitude: row.longitude, label: row.location_label ?? undefined }
+        : undefined,
+      topics: row.topics?.length ? row.topics : undefined,
     }))
     set({ entries })
   },
@@ -66,6 +76,10 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
         summary: entry.summary ?? null,
         image_urls: entry.imageUrls ?? null,
         framework_id: entry.frameworkId ?? null,
+        latitude: entry.location?.latitude ?? null,
+        longitude: entry.location?.longitude ?? null,
+        location_label: entry.location?.label ?? null,
+        topics: entry.topics ?? null,
         created_at: newEntry.createdAt.toISOString(),
         updated_at: newEntry.createdAt.toISOString(),
       })
@@ -85,6 +99,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     if (updates.wordCount !== undefined) dbUpdates.word_count = updates.wordCount
     if (updates.summary !== undefined) dbUpdates.summary = updates.summary
     if (updates.imageUrls !== undefined) dbUpdates.image_urls = updates.imageUrls
+    if (updates.topics !== undefined) dbUpdates.topics = updates.topics
 
     ;(async () => {
       const supabase = createClient()

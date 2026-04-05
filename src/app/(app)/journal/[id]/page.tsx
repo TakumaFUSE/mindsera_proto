@@ -88,9 +88,10 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
         body: JSON.stringify({ content: entry.content }),
       })
       if (!res.ok) throw new Error()
-      const { summary, ...analysis }: EmotionAnalysis & { summary?: string } = await res.json()
+      const { summary, topics, ...analysis }: EmotionAnalysis & { summary?: string; topics?: string[] } = await res.json()
       setEmotionAnalysis(id, analysis)
       if (summary) updateEntry(id, { summary })
+      if (topics?.length) updateEntry(id, { topics })
     } catch {
       setAnalysisError('分析に失敗しました。もう一度試してください。')
     } finally {

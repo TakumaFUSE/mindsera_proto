@@ -74,6 +74,11 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
         type: 'string',
         description: 'エントリの核心を一文で要約。感情ではなく出来事や思考を中心に（40文字以内）',
       },
+      topics: {
+        type: 'array',
+        description: 'エントリに登場する具体的なトピック・好きなもの・人・場所などを3〜5個抽出。例: ["牛丼", "仕事のプレゼン", "朝のランニング"]',
+        items: { type: 'string' },
+      },
     },
     required: ['emotions', 'dominant', 'overall', 'analysisText', 'summary'],
   },
@@ -107,6 +112,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No tool use response' }, { status: 500 })
   }
 
-  const analysis = toolUseBlock.input as EmotionAnalysis & { summary?: string }
+  const analysis = toolUseBlock.input as EmotionAnalysis & { summary?: string; topics?: string[] }
   return NextResponse.json(analysis)
 }

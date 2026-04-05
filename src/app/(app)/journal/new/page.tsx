@@ -11,7 +11,7 @@ import { getMentorMessage, MentorMessage } from '@/lib/personas'
 import { ImageUploader } from '@/components/editor/ImageUploader'
 
 type Mode = 'free' | 'deep' | 'quick'
-type Phase = 'write' | 'loading' | 'deepen' | 'saving' | 'complete'
+type Phase = 'write' | 'loading' | 'deepen' | 'closing' | 'saving' | 'complete'
 
 interface Turn {
   question: string
@@ -125,6 +125,9 @@ export default function NewEntryPage() {
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [currentAnswer, setCurrentAnswer] = useState('')
   const [quickAnswers, setQuickAnswers] = useState({ mood: '', event: '', tomorrow: '' })
+  const [closingQuestion, setClosingQuestion] = useState('')
+  const [closingAnswer, setClosingAnswer] = useState('')
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | undefined>()
   const [attachedImages, setAttachedImages] = useState<string[]>([])
   const [energy, setEnergy] = useState(0)
   const [isFirstToday, setIsFirstToday] = useState(true)
@@ -133,14 +136,32 @@ export default function NewEntryPage() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const answerRef = useRef<HTMLTextAreaElement>(null)
+  const closingAnswerRef = useRef<HTMLTextAreaElement>(null)
   const currentQuestionRef = useRef<HTMLDivElement>(null)
+  const closingQuestionRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { textareaRef.current?.focus() }, [])
+  useEffect(() => {
+    textareaRef.current?.focus()
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude })
+        },
+        () => { /* 拒否された場合は何もしない */ }
+      )
+    }
+  }, [])
   useEffect(() => {
     if (phase === 'deepen') {
       answerRef.current?.focus()
       setTimeout(() => {
         currentQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 250)
+    }
+    if (phase === 'closing') {
+      closingAnswerRef.current?.focus()
+      setTimeout(() => {
+        closingQuestionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 250)
     }
   }, [phase, turns.length, currentQuestion])
@@ -152,6 +173,8 @@ export default function NewEntryPage() {
     setTurns([])
     setCurrentQuestion('')
     setCurrentAnswer('')
+    setClosingQuestion('')
+    setClosingAnswer('')
     setQuickAnswers({ mood: '', event: '', tomorrow: '' })
   }
 
@@ -186,6 +209,27 @@ export default function NewEntryPage() {
     fetchQuestion(newTurns)
   }
 
+  const handleStartClosing = async () => {
+    const committedTurns = currentAnswer.trim()
+      ? [...turns, { question: currentQuestion, answer: currentAnswer }]
+      : turns
+    setTurns(committedTurns)
+    setCurrentAnswer('')
+    setPhase('loading')
+    try {
+      const res = await fetch('/api/go-deeper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, conversation: committedTurns, closing: true }),
+      })
+      const { question: q } = await res.json()
+      setClosingQuestion(q)
+      setPhase('closing')
+    } catch {
+      setPhase('deepen')
+    }
+  }
+
   const handleFinish = async () => {
     setPhase('saving')
 
@@ -201,9 +245,13 @@ export default function NewEntryPage() {
       plainText = parts.join('\n\n')
       content = parts.map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
     } else {
-      const allTurns = currentAnswer.trim()
-        ? [...turns, { question: currentQuestion, answer: currentAnswer }]
-        : turns
+      const allTurns = phase === 'closing'
+        ? closingAnswer.trim()
+          ? [...turns, { question: closingQuestion, answer: closingAnswer }]
+          : turns
+        : currentAnswer.trim()
+          ? [...turns, { question: currentQuestion, answer: currentAnswer }]
+          : turns
 
       const contentParts: string[] = []
       if (text.trim()) contentParts.push(`<p>${text.trim().replace(/\n/g, '<br>')}</p>`)
@@ -221,7 +269,7 @@ export default function NewEntryPage() {
       : text.trim()
     ).slice(0, 40) || 'New Entry'
 
-    const id = addEntry({ title, content, wordCount, imageUrls: attachedImages.length > 0 ? attachedImages : undefined })
+    const id = addEntry({ title, content, wordCount, imageUrls: attachedImages.length > 0 ? attachedImages : undefined, location })
 
     try {
       const res = await fetch('/api/analyze', {
@@ -230,9 +278,10 @@ export default function NewEntryPage() {
         body: JSON.stringify({ content }),
       })
       if (res.ok) {
-        const { summary, ...analysis }: EmotionAnalysis & { summary?: string } = await res.json()
+        const { summary, topics, ...analysis }: EmotionAnalysis & { summary?: string; topics?: string[] } = await res.json()
         setEmotionAnalysis(id, analysis)
         if (summary) updateEntry(id, { summary })
+        if (topics?.length) updateEntry(id, { topics })
         setSavedAnalysis(analysis)
       }
     } catch {}
@@ -248,6 +297,7 @@ export default function NewEntryPage() {
 
   const isLoading = phase === 'loading' || phase === 'saving'
   const hasAnswer = currentAnswer.trim().length > 0
+  const hasClosingAnswer = closingAnswer.trim().length > 0
 
   return (
     <>
@@ -348,7 +398,7 @@ export default function NewEntryPage() {
           )}
 
           {/* ディープダイブ: Phase 2 */}
-          {mode === 'deep' && (phase === 'deepen' || phase === 'saving' || (phase === 'loading' && turns.length > 0)) && (
+          {mode === 'deep' && (phase === 'deepen' || (phase === 'saving' && !closingQuestion) || (phase === 'loading' && turns.length > 0 && !closingQuestion)) && (
             <motion.div
               key="deep-deepen"
               initial={{ opacity: 0 }}
@@ -418,7 +468,6 @@ export default function NewEntryPage() {
                     <><RotateCcw className="w-4 h-4" />別の質問</>
                   )}
                 </button>
-
                 <button
                   onClick={handleFinish}
                   disabled={isLoading}
@@ -427,6 +476,97 @@ export default function NewEntryPage() {
                   {phase === 'saving' ? '保存中…' : 'エントリを完成させる'}
                 </button>
               </div>
+
+              {turns.length >= 3 && turns.length < 6 && phase !== 'loading' && (
+                <div className="mt-6 pt-5 border-t border-zinc-800/60">
+                  <button
+                    onClick={handleStartClosing}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 text-emerald-500 hover:text-emerald-400 text-sm font-medium transition-colors disabled:opacity-40"
+                  >
+                    <span className="text-base">✦</span>
+                    まとめに入る
+                  </button>
+                </div>
+              )}
+              {turns.length >= 6 && phase !== 'loading' && (
+                <div className="mt-6 pt-5 border-t border-zinc-800/60">
+                  <button
+                    onClick={handleStartClosing}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 px-5 py-2.5 border border-emerald-700/60 hover:border-emerald-600 hover:bg-emerald-950/40 text-emerald-400 text-sm font-medium rounded-full transition-colors disabled:opacity-40"
+                  >
+                    <span>✦</span>
+                    まとめに入る
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ディープダイブ: まとめフェーズ */}
+          {mode === 'deep' && (phase === 'closing' || (phase === 'saving' && !!closingQuestion) || (phase === 'loading' && !!closingQuestion)) && (
+            <motion.div
+              key="deep-closing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <p className="text-2xl text-white leading-relaxed mb-8 whitespace-pre-wrap">
+                {text}
+              </p>
+
+              {turns.map((turn, i) => (
+                <div key={i}>
+                  <div className="border-l-2 border-violet-800 pl-4 mb-4">
+                    <p className="text-violet-500 text-sm leading-relaxed">{turn.question}</p>
+                  </div>
+                  <p className="text-base text-zinc-400 leading-relaxed mb-6 whitespace-pre-wrap">
+                    {turn.answer}
+                  </p>
+                </div>
+              ))}
+
+              <AnimatePresence>
+                {closingQuestion && (
+                  <motion.div
+                    ref={closingQuestionRef}
+                    key={closingQuestion}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="border-l-4 border-emerald-500 pl-5 mb-8"
+                  >
+                    <p className="text-emerald-400 text-xs mb-2">✦ まとめ</p>
+                    <p className="text-emerald-300 text-lg leading-relaxed">{closingQuestion}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <textarea
+                ref={closingAnswerRef}
+                value={closingAnswer}
+                onChange={(e) => setClosingAnswer(e.target.value)}
+                placeholder={phase === 'loading' ? '' : '最後に一言...'}
+                disabled={phase === 'loading'}
+                rows={3}
+                className="w-full bg-transparent border-none outline-none text-2xl text-white placeholder-zinc-700 resize-none leading-relaxed mb-8 disabled:opacity-0"
+              />
+
+              {phase !== 'loading' && (
+                <div className="mb-8">
+                  <ImageUploader images={attachedImages} onChange={setAttachedImages} />
+                </div>
+              )}
+
+              <button
+                onClick={handleFinish}
+                disabled={isLoading || !hasClosingAnswer}
+                className="flex items-center gap-2 px-8 py-4 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-white font-semibold rounded-full text-base transition-colors"
+              >
+                {phase === 'saving' ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" />保存中…</>
+                ) : 'エントリを完成させる'}
+              </button>
             </motion.div>
           )}
 

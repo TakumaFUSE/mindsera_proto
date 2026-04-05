@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
 import {
   AreaChart,
@@ -19,6 +20,11 @@ import { EMOTION_META, PlutchikEmotion, JournalEntry } from '@/lib/types'
 import { calcStreak, toDateKey } from '@/lib/streak'
 import { calcMindsetScore } from '@/lib/mindset-score'
 import { MindsetScoreCard } from '@/components/mindset/MindsetScoreCard'
+
+const LocationMap = dynamic(() => import('@/components/insights/LocationMap'), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-zinc-800 rounded-xl animate-pulse" />,
+})
 
 type Range = '7' | '30' | 'all'
 
@@ -303,6 +309,31 @@ export default function InsightsPage() {
     )
   }, [filteredEntries, selectedEmotion])
 
+  const topicCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const entry of filteredEntries) {
+      for (const topic of entry.topics ?? []) {
+        counts.set(topic, (counts.get(topic) ?? 0) + 1)
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15)
+  }, [filteredEntries])
+
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+
+  const filteredByTopic = useMemo(() => {
+    if (!selectedTopic) return filteredByEmotion
+    return filteredByEmotion.filter((e) => e.topics?.includes(selectedTopic))
+  }, [filteredByEmotion, selectedTopic])
+
+  const entriesWithLocation = useMemo(
+    () => entries.filter((e) => e.location),
+    [entries]
+  )
+
   const nudge = useMemo(() => calcNudge(entries), [entries])
 
   // Weekly art
@@ -356,22 +387,6 @@ export default function InsightsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* 今週のナッジ */}
-      {nudge && <NudgeCard nudge={nudge} onNavigate={router.push} />}
-
-      {/* 週次アートカード */}
-      {weeklyDominant && (
-        <WeeklyArtCard
-          weeklyDominant={weeklyDominant}
-          weeklyOverall={weeklyOverall}
-          cachedUrl={cachedWeeklyUrl}
-          onGenerated={setWeeklyArt}
-        />
-      )}
-
-      {/* マインドセットスコア */}
-      {mindsetScore && <MindsetScoreCard score={mindsetScore} />}
-
       {/* ヘッダー */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
@@ -460,7 +475,146 @@ export default function InsightsPage() {
             )}
           </section>
 
-          {/* ② 感情トレンドチャート */}
+          {/* ② トピックバブル */}
+          {topicCounts.length > 0 && (
+            <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+              <h2 className="text-sm font-medium text-zinc-400 mb-4">よく書くトピック</h2>
+              <div className="flex flex-wrap gap-3 items-end">
+                {topicCounts.map(({ topic, count }, i) => {
+                  const minSize = 36
+                  const maxSize = 80
+                  const maxCount = topicCounts[0].count
+                  const size = Math.round(minSize + ((count / maxCount) * (maxSize - minSize)))
+                  const isActive = selectedTopic === topic
+                  return (
+                    <motion.button
+                      key={topic}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: i * 0.04, type: 'spring', stiffness: 260, damping: 20 }}
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setSelectedTopic(isActive ? null : topic)}
+                      style={{ width: size, height: size }}
+                      className={`rounded-full flex flex-col items-center justify-center cursor-pointer transition-all bg-zinc-800 border ${
+                        isActive ? 'border-zinc-400' : 'border-zinc-700'
+                      }`}
+                    >
+                      <span className="text-zinc-300 text-xs font-medium leading-tight px-1 text-center line-clamp-2">
+                        {topic}
+                      </span>
+                      {count > 1 && (
+                        <span className="text-zinc-500 text-xs mt-0.5">{count}</span>
+                      )}
+                    </motion.button>
+                  )
+                })}
+              </div>
+              {selectedTopic && (
+                <p className="text-xs text-zinc-500 mt-4">
+                  「{selectedTopic}」で絞り込み中
+                  <button
+                    onClick={() => setSelectedTopic(null)}
+                    className="ml-2 text-zinc-600 hover:text-zinc-400 underline"
+                  >
+                    解除
+                  </button>
+                </p>
+              )}
+            </section>
+          )}
+
+          {/* 書いた場所 */}
+          {entriesWithLocation.length > 0 && (
+            <section>
+              <h2 className="text-sm font-medium text-zinc-400 mb-4">書いた場所</h2>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden h-64">
+                <LocationMap entries={entriesWithLocation} />
+              </div>
+            </section>
+          )}
+
+          {/* エントリ一覧 */}
+          <section>
+            <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
+              {selectedTopic
+                ? `「${selectedTopic}」のエントリ（${filteredByTopic.length}件）`
+                : selectedEmotion
+                ? `「${EMOTION_META[selectedEmotion].label}」のエントリ（${filteredByTopic.length}件）`
+                : `エントリ一覧（${filteredByTopic.length}件）`}
+            </h2>
+            <div className="flex flex-col gap-3">
+              {[...filteredByTopic].reverse().map((entry) => {
+                const dominant = entry.emotionAnalysis!.dominant
+                const meta = EMOTION_META[dominant]
+                return (
+                  <motion.div
+                    key={entry.id}
+                    whileHover={{ scale: 1.01 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={() => router.push(`/journal/${entry.id}`)}
+                    className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate">{entry.title}</p>
+                        <p className="text-zinc-500 text-xs mt-0.5">
+                          {new Date(entry.createdAt).toLocaleDateString('ja-JP', {
+                            month: 'long', day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+                      <span
+                        className="text-xs font-medium px-2.5 py-1 rounded-full shrink-0"
+                        style={{ backgroundColor: meta.bg, color: meta.color }}
+                      >
+                        {meta.label}
+                      </span>
+                    </div>
+                    <div className="flex gap-1 mt-3">
+                      {entry.emotionAnalysis!.emotions.slice(0, 5).map((e) => (
+                        <div
+                          key={e.type}
+                          title={`${EMOTION_META[e.type].label} ${Math.round(e.score * 100)}%`}
+                          style={{
+                            flex: e.score,
+                            backgroundColor: EMOTION_META[e.type].color,
+                            opacity: 0.7,
+                          }}
+                          className="h-1 rounded-full"
+                        />
+                      ))}
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* ========== 仮出力物 ========== */}
+          <div className="flex items-center gap-3 py-2">
+            <div className="flex-1 h-px bg-zinc-700" />
+            <span className="text-zinc-500 text-xs font-mono whitespace-nowrap">==========仮出力物==========</span>
+            <div className="flex-1 h-px bg-zinc-700" />
+          </div>
+
+          {/* 今週のナッジ */}
+          {nudge && <NudgeCard nudge={nudge} onNavigate={router.push} />}
+
+          {/* 週次アートカード */}
+          {weeklyDominant && (
+            <WeeklyArtCard
+              weeklyDominant={weeklyDominant}
+              weeklyOverall={weeklyOverall}
+              cachedUrl={cachedWeeklyUrl}
+              onGenerated={setWeeklyArt}
+            />
+          )}
+
+          {/* マインドセットスコア */}
+          {mindsetScore && <MindsetScoreCard score={mindsetScore} />}
+
+          {/* 感情トレンドチャート */}
           {trendData.length >= 2 && (
             <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
               <h2 className="text-sm font-medium text-zinc-400 mb-5">感情トレンド</h2>
@@ -527,7 +681,7 @@ export default function InsightsPage() {
             </section>
           )}
 
-          {/* ③ 28日ヒートマップ */}
+          {/* ⑦ 28日ヒートマップ */}
           {entries.length > 0 && (
             <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
               <h2 className="text-sm font-medium text-zinc-400 mb-4">28日の記録</h2>
@@ -561,7 +715,7 @@ export default function InsightsPage() {
             </section>
           )}
 
-          {/* ④ 過去の自分から */}
+          {/* ⑧ 過去の自分から */}
           {pastEntry && (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
@@ -589,61 +743,6 @@ export default function InsightsPage() {
               </div>
             </motion.div>
           )}
-
-          {/* ⑤ エントリ一覧（絞り込み対応） */}
-          <section>
-            <h2 className="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">
-              {selectedEmotion
-                ? `「${EMOTION_META[selectedEmotion].label}」のエントリ（${filteredByEmotion.length}件）`
-                : `エントリ一覧（${filteredByEmotion.length}件）`}
-            </h2>
-            <div className="flex flex-col gap-3">
-              {[...filteredByEmotion].reverse().map((entry) => {
-                const dominant = entry.emotionAnalysis!.dominant
-                const meta = EMOTION_META[dominant]
-                return (
-                  <motion.div
-                    key={entry.id}
-                    whileHover={{ scale: 1.01 }}
-                    transition={{ duration: 0.15 }}
-                    onClick={() => router.push(`/journal/${entry.id}`)}
-                    className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{entry.title}</p>
-                        <p className="text-zinc-500 text-xs mt-0.5">
-                          {new Date(entry.createdAt).toLocaleDateString('ja-JP', {
-                            month: 'long', day: 'numeric',
-                          })}
-                        </p>
-                      </div>
-                      <span
-                        className="text-xs font-medium px-2.5 py-1 rounded-full shrink-0"
-                        style={{ backgroundColor: meta.bg, color: meta.color }}
-                      >
-                        {meta.label}
-                      </span>
-                    </div>
-                    <div className="flex gap-1 mt-3">
-                      {entry.emotionAnalysis!.emotions.slice(0, 5).map((e) => (
-                        <div
-                          key={e.type}
-                          title={`${EMOTION_META[e.type].label} ${Math.round(e.score * 100)}%`}
-                          style={{
-                            flex: e.score,
-                            backgroundColor: EMOTION_META[e.type].color,
-                            opacity: 0.7,
-                          }}
-                          className="h-1 rounded-full"
-                        />
-                      ))}
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </section>
 
         </div>
       )}
