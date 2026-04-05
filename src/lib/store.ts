@@ -67,7 +67,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      await supabase.from('journal_entries').insert({
+      const { error } = await supabase.from('journal_entries').insert({
         id,
         user_id: user.id,
         title: entry.title,
@@ -83,6 +83,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
         created_at: newEntry.createdAt.toISOString(),
         updated_at: newEntry.createdAt.toISOString(),
       })
+      if (error) console.error('[addEntry] insert error:', error)
     })()
 
     return id
