@@ -9,7 +9,8 @@
       "Bash(node -e \"const ai = require\\(''''ai''''\\); const st = ai.streamText; const r = st\\({model: null}\\); console.log\\(Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(r\\)\\).filter\\(k=>k.includes\\(''''Stream''''\\)||k.includes\\(''''stream''''\\)||k.includes\\(''''Response''''\\)||k.includes\\(''''response''''\\)\\)\\)\")",
       "Bash(grep -r supabase /Users/takumafuse/Desktop/mindsera_proto/src --include=*.ts --include=*.tsx)",
       "Bash(cat /Users/takumafuse/Desktop/mindsera_proto/src/app/\\\\\\(app\\\\\\)/frameworks/page.tsx)",
-      "Bash(cat /Users/takumafuse/Desktop/mindsera_proto/src/app/\\\\\\(app\\\\\\)/frameworks/[id]/page.tsx)"
+      "Bash(cat /Users/takumafuse/Desktop/mindsera_proto/src/app/\\\\\\(app\\\\\\)/frameworks/[id]/page.tsx)",
+      "Bash(curl -v -X POST http://localhost:3000/api/backfill)"
     ]
   }
 }

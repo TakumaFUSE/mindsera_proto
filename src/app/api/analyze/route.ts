@@ -80,7 +80,7 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
         items: { type: 'string' },
       },
     },
-    required: ['emotions', 'dominant', 'overall', 'analysisText', 'summary'],
+    required: ['emotions', 'dominant', 'overall', 'analysisText', 'summary', 'topics'],
   },
 }
 

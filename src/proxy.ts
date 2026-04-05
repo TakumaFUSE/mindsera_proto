@@ -27,8 +27,9 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup')
+  const isAdminApi = pathname.startsWith('/api/backfill')
 
-  if (!user && !isAuthPage) {
+  if (!user && !isAuthPage && !isAdminApi) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/login'
     return NextResponse.redirect(redirectUrl)
