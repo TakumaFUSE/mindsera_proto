@@ -2,15 +2,53 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, RotateCcw, BookOpen, Plus, Loader2 } from 'lucide-react'
+import { Send, RotateCcw, BookOpen, Plus, Loader2, X } from 'lucide-react'
 import { personas, Persona } from '@/lib/personas'
+import { CustomMentor } from '@/lib/types'
 import { useJournalStore } from '@/lib/store'
 import { createClient } from '@/lib/supabase/client'
+
+// NOTE: Supabaseで以下のSQLを実行してください:
+// CREATE TABLE IF NOT EXISTS custom_mentors (
+//   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+//   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+//   name text NOT NULL,
+//   role text NOT NULL,
+//   description text NOT NULL,
+//   system_prompt text NOT NULL,
+//   color text NOT NULL DEFAULT '#8B5CF6',
+//   emoji text NOT NULL DEFAULT '✨',
+//   created_at timestamptz DEFAULT now()
+// );
+// ALTER TABLE custom_mentors ENABLE ROW LEVEL SECURITY;
+// CREATE POLICY "Users can manage their own custom mentors"
+//   ON custom_mentors FOR ALL
+//   USING (auth.uid() = user_id)
+//   WITH CHECK (auth.uid() = user_id);
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
+}
+
+interface ChatPersona {
+  id: string
+  name: string
+  role: string
+  systemPrompt: string
+  color: string
+  bg: string
+  emoji: string
+  isCustom?: boolean
+}
+
+function toChatPersona(p: Persona): ChatPersona {
+  return { id: p.id, name: p.name, role: p.role, systemPrompt: p.systemPrompt, color: p.color, bg: p.bg, emoji: p.emoji }
+}
+
+function customToChatPersona(m: CustomMentor): ChatPersona {
+  return { id: m.id, name: m.name, role: m.role, systemPrompt: m.systemPrompt, color: m.color, bg: m.color + '20', emoji: m.emoji, isCustom: true }
 }
 
 function toPlainText(html: string) {
@@ -23,10 +61,7 @@ const WELCOME_MESSAGES: Record<string, string> = {
   psychologist: 'こんにちは。今日ここに来てくださってありがとうございます。今、どんな気持ちでいますか？',
   challenger: '来ましたね。今日、あなたが本当に向き合いたいことは何ですか？',
 }
-
-const EMOJI: Record<string, string> = {
-  stoic: '🏛️', cbt: '🧠', psychologist: '💙', challenger: '⚡',
-}
+const DEFAULT_WELCOME = 'こんにちは。今日はどんなことを話しましょうか？'
 
 // ---- DB helpers ----
 async function loadConversation(personaId: string): Promise<Message[]> {
@@ -50,20 +85,20 @@ async function saveConversation(personaId: string, messages: Message[]) {
 }
 
 // ---- Chat hook ----
-function useStreamChat(persona: Persona, entryContext: string) {
+function useStreamChat(persona: ChatPersona, entryContext: string) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(true)
 
-  // 履歴をDBからロード
   useEffect(() => {
     setHistoryLoading(true)
     loadConversation(persona.id).then((saved) => {
       if (saved.length > 0) {
         setMessages(saved)
       } else {
-        setMessages([{ id: 'welcome', role: 'assistant', content: WELCOME_MESSAGES[persona.id] }])
+        const welcome = WELCOME_MESSAGES[persona.id] ?? DEFAULT_WELCOME
+        setMessages([{ id: 'welcome', role: 'assistant', content: welcome }])
       }
       setHistoryLoading(false)
     })
@@ -89,7 +124,8 @@ function useStreamChat(persona: Persona, entryContext: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          personaId: persona.id,
+          personaId: persona.isCustom ? undefined : persona.id,
+          systemPrompt: persona.isCustom ? persona.systemPrompt : undefined,
           entryContext,
           messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
         }),
@@ -111,7 +147,6 @@ function useStreamChat(persona: Persona, entryContext: string) {
         )
       }
 
-      // 完了後にDBへ保存
       const finalMessages: Message[] = [
         ...messages,
         userMsg,
@@ -127,20 +162,129 @@ function useStreamChat(persona: Persona, entryContext: string) {
     } finally {
       setIsLoading(false)
     }
-  }, [messages, isLoading, persona.id, entryContext])
+  }, [messages, isLoading, persona, entryContext])
 
   const resetConversation = useCallback(async () => {
-    const welcome: Message = { id: 'welcome', role: 'assistant', content: WELCOME_MESSAGES[persona.id] }
-    setMessages([welcome])
+    const welcome = WELCOME_MESSAGES[persona.id] ?? DEFAULT_WELCOME
+    const welcomeMsg: Message = { id: 'welcome', role: 'assistant', content: welcome }
+    setMessages([welcomeMsg])
     setInput('')
-    await saveConversation(persona.id, [welcome])
+    await saveConversation(persona.id, [welcomeMsg])
   }, [persona.id])
 
   return { messages, input, setInput, isLoading, historyLoading, sendMessage, resetConversation }
 }
 
+// ---- Create mentor modal ----
+function CreateMentorModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void
+  onCreated: (mentor: CustomMentor) => void
+}) {
+  const [description, setDescription] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const handleCreate = async () => {
+    if (!description.trim() || isGenerating) return
+    setIsGenerating(true)
+    try {
+      const res = await fetch('/api/generate-persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: description.trim() }),
+      })
+      if (!res.ok) throw new Error()
+      const { name, role, systemPrompt, color, emoji } = await res.json()
+
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error()
+
+      const { data, error } = await supabase
+        .from('custom_mentors')
+        .insert({ user_id: user.id, name, role, description: description.trim(), system_prompt: systemPrompt, color, emoji })
+        .select()
+        .single()
+      if (error || !data) throw new Error()
+
+      onCreated({
+        id: data.id,
+        userId: data.user_id,
+        name: data.name,
+        role: data.role,
+        description: data.description,
+        systemPrompt: data.system_prompt,
+        color: data.color,
+        emoji: data.emoji,
+        createdAt: data.created_at,
+      })
+      onClose()
+    } catch {
+      // エラーは無視してモーダルを開いたまま
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-lg w-full p-8"
+      >
+        <h2 className="text-xl font-bold text-white">あなただけのメンターをつくる</h2>
+        <p className="text-zinc-400 text-sm mt-2 mb-6">
+          どんな人と話したいか、自由に教えてください。<br />AIがあなたの理想のメンターを作ります。
+        </p>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={5}
+          placeholder={`例:\n・元スタートアップCEOで、失敗経験が豊富な人。厳しいけど愛がある。\n・禅の思想を持つ、静かで深い人。短い言葉で本質をついてくる。\n・年上の姉のような存在。話を聞いてくれて、最後は背中を押してくれる。`}
+          className="w-full bg-zinc-950 border border-zinc-800 focus:border-zinc-600 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 outline-none resize-none transition-colors leading-relaxed"
+        />
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            disabled={isGenerating}
+            className="flex-1 px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-sm rounded-xl transition-colors disabled:opacity-50"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={!description.trim() || isGenerating}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-sm font-medium rounded-xl transition-colors"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                生成中…
+              </>
+            ) : 'つくる'}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 // ---- Persona selector ----
-function PersonaSelector({ onSelect }: { onSelect: (p: Persona) => void }) {
+function PersonaSelector({
+  customMentors,
+  onSelect,
+  onDeleteCustom,
+  onOpenCreate,
+}: {
+  customMentors: CustomMentor[]
+  onSelect: (p: ChatPersona) => void
+  onDeleteCustom: (id: string) => void
+  onOpenCreate: () => void
+}) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
@@ -156,11 +300,11 @@ function PersonaSelector({ onSelect }: { onSelect: (p: Persona) => void }) {
             transition={{ delay: i * 0.07 }}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => onSelect(persona)}
+            onClick={() => onSelect(toChatPersona(persona))}
             className="text-left bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-5 transition-colors"
           >
             <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3 text-lg" style={{ backgroundColor: persona.bg }}>
-              {EMOJI[persona.id]}
+              {persona.emoji}
             </div>
             <h3 className="text-white font-semibold text-sm mb-0.5">{persona.name}</h3>
             <p className="text-xs mb-2" style={{ color: persona.color }}>{persona.role}</p>
@@ -168,12 +312,63 @@ function PersonaSelector({ onSelect }: { onSelect: (p: Persona) => void }) {
           </motion.button>
         ))}
       </div>
+
+      {/* マイメンター */}
+      {customMentors.length > 0 && (
+        <>
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-zinc-800" />
+            <span className="text-xs text-zinc-600">マイメンター</span>
+            <div className="flex-1 h-px bg-zinc-800" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {customMentors.map((mentor, i) => (
+              <motion.div
+                key={mentor.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.07 }}
+                className="relative group"
+              >
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onSelect(customToChatPersona(mentor))}
+                  className="w-full text-left bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-5 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3 text-lg" style={{ backgroundColor: mentor.color + '20' }}>
+                    {mentor.emoji}
+                  </div>
+                  <h3 className="text-white font-semibold text-sm mb-0.5">{mentor.name}</h3>
+                  <p className="text-xs mb-2" style={{ color: mentor.color }}>{mentor.role}</p>
+                  <p className="text-zinc-500 text-xs leading-relaxed line-clamp-2">{mentor.description}</p>
+                </motion.button>
+                <button
+                  onClick={() => onDeleteCustom(mentor.id)}
+                  className="absolute top-3 right-3 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 作成ボタン */}
+      <button
+        onClick={onOpenCreate}
+        className="w-full mt-4 bg-zinc-900 border border-dashed border-zinc-700 hover:border-zinc-600 rounded-xl p-5 flex items-center justify-center gap-3 transition-colors"
+      >
+        <Plus className="w-4 h-4 text-zinc-500" />
+        <span className="text-zinc-400 text-sm">自分だけのメンターをつくる</span>
+      </button>
     </div>
   )
 }
 
 // ---- Chat view ----
-function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void }) {
+function ChatView({ persona, onReset }: { persona: ChatPersona; onReset: () => void }) {
   const entries = useJournalStore((s) => s.entries)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -202,7 +397,7 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: persona.bg }}>
-            {EMOJI[persona.id]}
+            {persona.emoji}
           </div>
           <div>
             <p className="text-white text-sm font-semibold leading-tight">{persona.name}</p>
@@ -250,7 +445,7 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
               >
                 {msg.role === 'assistant' && (
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 mr-2 mt-1" style={{ backgroundColor: persona.bg }}>
-                    {EMOJI[persona.id]}
+                    {persona.emoji}
                   </div>
                 )}
                 <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
@@ -305,11 +500,64 @@ function ChatView({ persona, onReset }: { persona: Persona; onReset: () => void 
 
 // ---- Page ----
 export default function MentorPage() {
-  const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null)
+  const [selectedPersona, setSelectedPersona] = useState<ChatPersona | null>(null)
+  const [customMentors, setCustomMentors] = useState<CustomMentor[]>([])
+  const [isCreating, setIsCreating] = useState(false)
 
-  return selectedPersona ? (
-    <ChatView persona={selectedPersona} onReset={() => setSelectedPersona(null)} />
-  ) : (
-    <PersonaSelector onSelect={setSelectedPersona} />
+  useEffect(() => {
+    const load = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('custom_mentors')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (data) {
+        setCustomMentors(data.map((d) => ({
+          id: d.id,
+          userId: d.user_id,
+          name: d.name,
+          role: d.role,
+          description: d.description,
+          systemPrompt: d.system_prompt,
+          color: d.color,
+          emoji: d.emoji,
+          createdAt: d.created_at,
+        })))
+      }
+    }
+    load()
+  }, [])
+
+  const handleDeleteCustom = async (id: string) => {
+    const supabase = createClient()
+    await supabase.from('custom_mentors').delete().eq('id', id)
+    setCustomMentors((prev) => prev.filter((m) => m.id !== id))
+  }
+
+  const handleCreated = (mentor: CustomMentor) => {
+    setCustomMentors((prev) => [mentor, ...prev])
+  }
+
+  return (
+    <>
+      <AnimatePresence>
+        {isCreating && (
+          <CreateMentorModal
+            onClose={() => setIsCreating(false)}
+            onCreated={handleCreated}
+          />
+        )}
+      </AnimatePresence>
+      {selectedPersona ? (
+        <ChatView persona={selectedPersona} onReset={() => setSelectedPersona(null)} />
+      ) : (
+        <PersonaSelector
+          customMentors={customMentors}
+          onSelect={setSelectedPersona}
+          onDeleteCustom={handleDeleteCustom}
+          onOpenCreate={() => setIsCreating(true)}
+        />
+      )}
+    </>
   )
 }

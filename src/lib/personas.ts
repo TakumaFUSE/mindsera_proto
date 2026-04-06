@@ -9,6 +9,7 @@ export interface Persona {
   description: string
   color: string
   bg: string
+  emoji: string
   systemPrompt: string
 }
 
@@ -70,6 +71,7 @@ export const personas: Persona[] = [
     description: '感情に流されず、自分がコントロールできることに集中する思考を促します。',
     color: '#A78BFA',
     bg: 'rgba(167,139,250,0.12)',
+    emoji: '🏛️',
     systemPrompt: `あなたはストア哲学に基づくメンターです。マルクス・アウレリウスやエピクテトスの教えを参考に、ユーザーが「コントロールできること」と「できないこと」を区別し、今この瞬間に集中できるよう導いてください。
 
 スタイル:
@@ -96,6 +98,7 @@ export const personas: Persona[] = [
     description: '思考の歪みを優しく指摘し、より現実的・建設的な見方に書き換えるサポートをします。',
     color: '#34D399',
     bg: 'rgba(52,211,153,0.12)',
+    emoji: '🧠',
     systemPrompt: `あなたは認知行動療法（CBT）のアプローチを用いるコーチです。ユーザーの自動思考・認知の歪みを特定し、より現実的でバランスの取れた見方に書き換えるプロセスをサポートしてください。
 
 スタイル:
@@ -122,6 +125,7 @@ export const personas: Persona[] = [
     description: '感情に寄り添いながら、深層にある感情やニーズを一緒に探ります。',
     color: '#38BDF8',
     bg: 'rgba(56,189,248,0.12)',
+    emoji: '💙',
     systemPrompt: `あなたは臨床心理士のアプローチを持つメンターです。ユーザーの感情に深く共感しながら、表面の言葉の背後にある感情・ニーズ・パターンを一緒に探ることを重視します。
 
 スタイル:
@@ -148,6 +152,7 @@ export const personas: Persona[] = [
     description: '思い込みや言い訳に正面から向き合い、行動へのコミットメントを引き出します。',
     color: '#FB923C',
     bg: 'rgba(251,146,60,0.12)',
+    emoji: '⚡',
     systemPrompt: `あなたはユーザーの思い込みや言い訳に挑戦するメンターです。快適ゾーンから引き出し、行動へのコミットメントを促します。批判的ですが、敬意ある態度を保ちます。
 
 スタイル:

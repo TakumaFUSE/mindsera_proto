@@ -10,16 +10,20 @@ if (!process.env.ANTHROPIC_API_KEY) {
 export const maxDuration = 30
 
 export async function POST(req: NextRequest) {
-  const { messages, personaId, entryContext } = await req.json()
+  const { messages, personaId, entryContext, systemPrompt: customSystemPrompt } = await req.json()
 
-  const persona = personas.find((p) => p.id === (personaId as PersonaId))
-  if (!persona) {
-    return new Response('Invalid persona', { status: 400 })
+  let basePrompt: string
+  if (customSystemPrompt) {
+    basePrompt = customSystemPrompt
+  } else {
+    const persona = personas.find((p) => p.id === (personaId as PersonaId))
+    if (!persona) return new Response('Invalid persona', { status: 400 })
+    basePrompt = persona.systemPrompt
   }
 
   const systemPrompt = entryContext
-    ? `${persona.systemPrompt}\n\n---\n【ユーザーの最近のジャーナルエントリ】\n${entryContext}`
-    : persona.systemPrompt
+    ? `${basePrompt}\n\n---\n【ユーザーの最近のジャーナルエントリ】\n${entryContext}`
+    : basePrompt
 
   const result = streamText({
     model: anthropic('claude-haiku-4-5-20251001'),

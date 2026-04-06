@@ -44,6 +44,18 @@ export interface EmotionAnalysis {
   topics?: string[]
 }
 
+export interface CustomMentor {
+  id: string
+  userId: string
+  name: string
+  role: string
+  description: string
+  systemPrompt: string
+  color: string
+  emoji: string
+  createdAt: string
+}
+
 export const EMOTION_META: Record<PlutchikEmotion, { label: string; color: string; bg: string }> = {
   joy:          { label: '喜び',    color: '#FBBF24', bg: 'rgba(251,191,36,0.15)'  },
   trust:        { label: '信頼',    color: '#34D399', bg: 'rgba(52,211,153,0.15)'  },
