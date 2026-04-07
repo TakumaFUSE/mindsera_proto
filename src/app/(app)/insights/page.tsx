@@ -432,6 +432,7 @@ export default function InsightsPage() {
             <div className="flex flex-wrap gap-3 items-end">
               {aggregatedEmotions.map(({ type, avg }, i) => {
                 const meta = EMOTION_META[type]
+                if (!meta) return null
                 const size = bubbleSize(avg)
                 const isActive = selectedEmotion === type
 
@@ -547,6 +548,7 @@ export default function InsightsPage() {
               {[...filteredByTopic].reverse().map((entry) => {
                 const dominant = entry.emotionAnalysis!.dominant
                 const meta = EMOTION_META[dominant]
+                if (!meta) return null
                 return (
                   <motion.div
                     key={entry.id}
@@ -572,18 +574,22 @@ export default function InsightsPage() {
                       </span>
                     </div>
                     <div className="flex gap-1 mt-3">
-                      {entry.emotionAnalysis!.emotions.slice(0, 5).map((e) => (
-                        <div
-                          key={e.type}
-                          title={`${EMOTION_META[e.type].label} ${Math.round(e.score * 100)}%`}
-                          style={{
-                            flex: e.score,
-                            backgroundColor: EMOTION_META[e.type].color,
-                            opacity: 0.7,
-                          }}
-                          className="h-1 rounded-full"
-                        />
-                      ))}
+                      {entry.emotionAnalysis!.emotions.slice(0, 5).map((e) => {
+                        const eMeta = EMOTION_META[e.type]
+                        if (!eMeta) return null
+                        return (
+                          <div
+                            key={e.type}
+                            title={`${eMeta.label} ${Math.round(e.score * 100)}%`}
+                            style={{
+                              flex: e.score,
+                              backgroundColor: eMeta.color,
+                              opacity: 0.7,
+                            }}
+                            className="h-1 rounded-full"
+                          />
+                        )
+                      })}
                     </div>
                   </motion.div>
                 )
