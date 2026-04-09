@@ -2,7 +2,9 @@
 
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { Trash2 } from 'lucide-react'
 import { JournalEntry } from '@/lib/types'
+import { useJournalStore } from '@/lib/store'
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim()
@@ -21,7 +23,14 @@ function formatDate(date: Date): string {
 
 export function EntryCard({ entry }: { entry: JournalEntry }) {
   const router = useRouter()
+  const deleteEntry = useJournalStore((s) => s.deleteEntry)
   const preview = stripHtml(entry.content).slice(0, 120)
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('このエントリを削除しますか？')) return
+    await deleteEntry(entry.id)
+  }
 
   return (
     <motion.div
@@ -45,9 +54,18 @@ export function EntryCard({ entry }: { entry: JournalEntry }) {
       <div className="p-5">
         <div className="flex items-start justify-between gap-4 mb-2">
           <h3 className="text-white font-medium leading-snug">{entry.title}</h3>
-          <span className="text-xs text-zinc-500 shrink-0 mt-0.5">
-            {formatDate(entry.createdAt)}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-zinc-500 mt-0.5">
+              {formatDate(entry.createdAt)}
+            </span>
+            <button
+              onClick={handleDelete}
+              className="p-1 text-zinc-600 hover:text-red-400 transition-colors rounded"
+              aria-label="削除"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         <p className="text-zinc-400 text-sm leading-relaxed mb-3">

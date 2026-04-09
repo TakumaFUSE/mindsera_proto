@@ -7,6 +7,7 @@ interface JournalStore {
   loadEntries: () => Promise<void>
   addEntry: (entry: Omit<JournalEntry, 'id' | 'createdAt'>) => string
   updateEntry: (id: string, updates: Partial<Omit<JournalEntry, 'id'>>) => void
+  deleteEntry: (id: string) => Promise<void>
   setEmotionAnalysis: (id: string, analysis: EmotionAnalysis) => void
   setArtUrl: (id: string, url: string) => void
   getEntry: (id: string) => JournalEntry | undefined
@@ -29,6 +30,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     const { data } = await supabase
       .from('journal_entries')
       .select('*')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (!data) return
@@ -104,6 +106,15 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       const supabase = createClient()
       await supabase.from('journal_entries').update(dbUpdates).eq('id', id)
     })()
+  },
+
+  deleteEntry: async (id) => {
+    set((state) => ({ entries: state.entries.filter((e) => e.id !== id) }))
+    const supabase = createClient()
+    await supabase
+      .from('journal_entries')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
   },
 
   setEmotionAnalysis: (id, analysis) => {

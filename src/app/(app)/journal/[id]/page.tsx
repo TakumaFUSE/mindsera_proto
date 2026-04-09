@@ -2,7 +2,7 @@
 
 import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Pencil, Check, Sparkles, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Pencil, Check, Sparkles, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { JournalEditor } from '@/components/editor/JournalEditor'
@@ -63,6 +63,7 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
   const { id } = use(params)
   const entry = useJournalStore((s) => s.getEntry(id))
   const updateEntry = useJournalStore((s) => s.updateEntry)
+  const deleteEntry = useJournalStore((s) => s.deleteEntry)
   const setArtUrl = useJournalStore((s) => s.setArtUrl)
   const setEmotionAnalysis = useJournalStore((s) => s.setEmotionAnalysis)
   const router = useRouter()
@@ -144,6 +145,12 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
     setIsEditing(false)
   }
 
+  const handleDelete = async () => {
+    if (!confirm('このエントリを削除しますか？')) return
+    await deleteEntry(id)
+    router.push('/dashboard')
+  }
+
   const handleStartEdit = () => {
     setEditTitle(entry.title)
     setEditContent(entry.content)
@@ -176,13 +183,21 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
             変更を保存
           </button>
         ) : (
-          <button
-            onClick={handleStartEdit}
-            className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-            編集
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-red-900/40 hover:text-red-400 text-zinc-500 text-sm rounded-lg transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleStartEdit}
+              className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              編集
+            </button>
+          </div>
         )}
       </div>
 
