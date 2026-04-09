@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, RotateCcw, BookOpen, Plus, Loader2, X } from 'lucide-react'
+import { Send, BookOpen, Plus, Loader2, X } from 'lucide-react'
 import { personas, Persona } from '@/lib/personas'
 import { CustomMentor } from '@/lib/types'
 import { useJournalStore } from '@/lib/store'
@@ -368,12 +368,13 @@ function PersonaSelector({
 }
 
 // ---- Chat view ----
-function ChatView({ persona, onReset }: { persona: ChatPersona; onReset: () => void }) {
+function ChatView({ persona }: { persona: ChatPersona }) {
   const entries = useJournalStore((s) => s.entries)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const [useAllEntries, setUseAllEntries] = useState(false)
 
-  const entryContext = entries
-    .slice(0, 3)
+  const contextEntries = useAllEntries ? entries : entries.slice(0, 3)
+  const entryContext = contextEntries
     .map((e) => `【${e.title}】\n${toPlainText(e.content)}`)
     .join('\n\n')
 
@@ -406,9 +407,27 @@ function ChatView({ persona, onReset }: { persona: ChatPersona; onReset: () => v
         </div>
         <div className="flex items-center gap-2">
           {entries.length > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-zinc-600">
-              <BookOpen className="w-3 h-3" />
-              <span className="hidden sm:inline">直近{Math.min(entries.length, 3)}件参照中</span>
+            <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5 gap-0.5">
+              <button
+                onClick={() => setUseAllEntries(false)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  !useAllEntries
+                    ? 'bg-violet-600 text-white'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <BookOpen className="w-3 h-3" />直近3件
+              </button>
+              <button
+                onClick={() => setUseAllEntries(true)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md transition-colors ${
+                  useAllEntries
+                    ? 'bg-violet-600 text-white'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                全{entries.length}件
+              </button>
             </div>
           )}
           <button
@@ -417,12 +436,6 @@ function ChatView({ persona, onReset }: { persona: ChatPersona; onReset: () => v
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-colors"
           >
             <Plus className="w-3 h-3" />新しい会話
-          </button>
-          <button
-            onClick={onReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-colors"
-          >
-            <RotateCcw className="w-3 h-3" />変える
           </button>
         </div>
       </div>
@@ -549,7 +562,7 @@ export default function MentorPage() {
         )}
       </AnimatePresence>
       {selectedPersona ? (
-        <ChatView persona={selectedPersona} onReset={() => setSelectedPersona(null)} />
+        <ChatView persona={selectedPersona} />
       ) : (
         <PersonaSelector
           customMentors={customMentors}
