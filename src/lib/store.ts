@@ -40,7 +40,8 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     //   ADD COLUMN IF NOT EXISTS latitude double precision,
     //   ADD COLUMN IF NOT EXISTS longitude double precision,
     //   ADD COLUMN IF NOT EXISTS location_label text,
-    //   ADD COLUMN IF NOT EXISTS topics text[];
+    //   ADD COLUMN IF NOT EXISTS topics text[],
+    //   ADD COLUMN IF NOT EXISTS keyword_matrix jsonb;
     const entries: JournalEntry[] = data.map((row) => ({
       id: row.id,
       title: row.title,
@@ -51,6 +52,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       artUrl: row.art_url ?? undefined,
       imageUrls: row.image_urls?.length ? row.image_urls : undefined,
       emotionAnalysis: row.emotion_analysis ?? undefined,
+      keywordMatrix: row.keyword_matrix ?? undefined,
       location: row.latitude != null && row.longitude != null
         ? { latitude: row.latitude, longitude: row.longitude, label: row.location_label ?? undefined }
         : undefined,
@@ -101,6 +103,7 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
     if (updates.summary !== undefined) dbUpdates.summary = updates.summary
     if (updates.imageUrls !== undefined) dbUpdates.image_urls = updates.imageUrls
     if (updates.topics !== undefined) dbUpdates.topics = updates.topics
+    if (updates.keywordMatrix !== undefined) dbUpdates.keyword_matrix = updates.keywordMatrix
 
     ;(async () => {
       const supabase = createClient()

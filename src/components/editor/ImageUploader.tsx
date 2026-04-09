@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { ImagePlus, X, Loader2 } from 'lucide-react'
+import { ImagePlus, X, Loader2, AlertCircle } from 'lucide-react'
 
 interface ImageUploaderProps {
   images: string[]
@@ -11,26 +11,40 @@ interface ImageUploaderProps {
 export function ImageUploader({ images, onChange }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setUploading(true)
-    try {
-      const urls: string[] = []
-      for (const file of Array.from(files)) {
-        const formData = new FormData()
-        formData.append('file', file)
-        const res = await fetch('/api/upload-image', { method: 'POST', body: formData })
-        if (res.ok) {
-          const { url } = await res.json()
-          urls.push(url)
+    setError(null)
+
+    const failed: string[] = []
+    const urls: string[] = []
+
+    await Promise.all(
+      Array.from(files).map(async (file) => {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          const res = await fetch('/api/upload-image', { method: 'POST', body: formData })
+          if (res.ok) {
+            const { url } = await res.json()
+            urls.push(url)
+          } else {
+            const body = await res.json().catch(() => ({}))
+            failed.push(body.error ?? `${file.name}: アップロード失敗`)
+          }
+        } catch {
+          failed.push(`${file.name}: ネットワークエラー`)
         }
-      }
-      onChange([...images, ...urls])
-    } finally {
-      setUploading(false)
-      if (inputRef.current) inputRef.current.value = ''
-    }
+      })
+    )
+
+    if (urls.length > 0) onChange([...images, ...urls])
+    if (failed.length > 0) setError(failed.join(' / '))
+
+    setUploading(false)
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   const remove = (url: string) => onChange(images.filter((u) => u !== url))
@@ -63,6 +77,12 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
         {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
         {uploading ? 'アップロード中…' : '画像を添付'}
       </button>
+      {error && (
+        <div className="flex items-center gap-1.5 mt-2 text-xs text-red-400">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
       <input
         ref={inputRef}
         type="file"

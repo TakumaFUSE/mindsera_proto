@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
@@ -16,6 +16,7 @@ import {
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import { useJournalStore } from '@/lib/store'
+import { createClient } from '@/lib/supabase/client'
 import { EMOTION_META, PlutchikEmotion, JournalEntry } from '@/lib/types'
 import { calcStreak, toDateKey } from '@/lib/streak'
 import { calcMindsetScore } from '@/lib/mindset-score'
@@ -259,6 +260,23 @@ export default function InsightsPage() {
   const router = useRouter()
   const [range, setRange] = useState<Range>('all')
   const [selectedEmotion, setSelectedEmotion] = useState<PlutchikEmotion | null>(null)
+  const [savedKeywords, setSavedKeywords] = useState<{ keyword: string; entryId: string; createdAt: string }[]>([])
+
+  useEffect(() => {
+    const load = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('keyword_saves')
+        .select('keyword, entry_id, created_at')
+        .order('created_at', { ascending: false })
+      if (data) setSavedKeywords(data.map((d) => ({
+        keyword: d.keyword,
+        entryId: d.entry_id,
+        createdAt: d.created_at,
+      })))
+    }
+    load()
+  }, [])
 
   const filteredEntries = useMemo(() => {
     const sorted = [...entries]
@@ -524,6 +542,36 @@ export default function InsightsPage() {
               )}
             </section>
           )}
+
+          {/* 気になったキーワード */}
+          {savedKeywords.length > 0 && (() => {
+            const keywordCounts = savedKeywords.reduce((acc, { keyword, entryId }) => {
+              if (!acc[keyword]) acc[keyword] = { count: 0, entryId }
+              acc[keyword].count++
+              return acc
+            }, {} as Record<string, { count: number; entryId: string }>)
+
+            return (
+              <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                <h2 className="text-sm font-medium text-zinc-400 mb-4">気になったキーワード</h2>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(keywordCounts).map(([keyword, { count, entryId }], i) => (
+                    <motion.button
+                      key={keyword}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 260, damping: 20, delay: i * 0.04 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => router.push(`/journal/${entryId}`)}
+                      className="bg-zinc-800 border border-zinc-700 rounded-full px-3 py-1 text-zinc-300 text-sm hover:border-zinc-500 hover:text-white transition-colors"
+                    >
+                      {keyword}{count > 1 ? ` (${count})` : ''}
+                    </motion.button>
+                  ))}
+                </div>
+              </section>
+            )
+          })()}
 
           {/* 書いた場所 */}
           {entriesWithLocation.length > 0 && (

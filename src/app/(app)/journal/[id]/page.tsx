@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Pencil, Check, Sparkles, Loader2, RefreshCw, Trash2 } from 'lucide-react'
 import Link from 'next/link'
@@ -8,8 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { JournalEditor } from '@/components/editor/JournalEditor'
 import { ImageUploader } from '@/components/editor/ImageUploader'
 import { EmotionBubbles } from '@/components/emotions/EmotionBubbles'
+import { KeywordMatrix } from '@/components/journal/KeywordMatrix'
 import { useJournalStore } from '@/lib/store'
-import { EmotionAnalysis, PlutchikEmotion } from '@/lib/types'
+import { createClient } from '@/lib/supabase/client'
+import { EmotionAnalysis, KeywordMatrix as KeywordMatrixType, PlutchikEmotion } from '@/lib/types'
 import { getMentorMessage } from '@/lib/personas'
 
 function formatDate(date: Date) {
@@ -69,6 +71,9 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
   const router = useRouter()
 
   const [isEditing, setIsEditing] = useState(false)
+  const [matrix, setMatrix] = useState<KeywordMatrixType | null>(entry?.keywordMatrix ?? null)
+  const [matrixLoading, setMatrixLoading] = useState(false)
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set())
   const [editTitle, setEditTitle] = useState(entry?.title ?? '')
   const [editContent, setEditContent] = useState(entry?.content ?? '')
   const [editWordCount, setEditWordCount] = useState(entry?.wordCount ?? 0)
@@ -77,6 +82,72 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
   const [artError, setArtError] = useState<string | null>(null)
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [analysisError, setAnalysisError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const load = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('keyword_saves')
+        .select('col_index, row_index')
+        .eq('entry_id', id)
+      if (data) {
+        setSavedKeys(new Set(data.map((d) => `${d.col_index}-${d.row_index}`)))
+      }
+    }
+    load()
+  }, [id])
+
+  useEffect(() => {
+    if (entry?.emotionAnalysis && !entry.keywordMatrix && !matrix && !matrixLoading) {
+      generateMatrix()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry?.emotionAnalysis])
+
+  const generateMatrix = async () => {
+    if (!entry || matrixLoading) return
+    setMatrixLoading(true)
+    try {
+      const res = await fetch('/api/keyword-matrix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: entry.content }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setMatrix(data)
+        updateEntry(id, { keywordMatrix: data })
+      }
+    } finally {
+      setMatrixLoading(false)
+    }
+  }
+
+  const handleToggle = async (colIndex: number, rowIndex: number, keyword: string) => {
+    const key = `${colIndex}-${rowIndex}`
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    if (savedKeys.has(key)) {
+      setSavedKeys((prev) => { const next = new Set(prev); next.delete(key); return next })
+      await supabase
+        .from('keyword_saves')
+        .delete()
+        .eq('entry_id', id)
+        .eq('col_index', colIndex)
+        .eq('row_index', rowIndex)
+    } else {
+      setSavedKeys((prev) => new Set([...prev, key]))
+      await supabase.from('keyword_saves').insert({
+        user_id: user.id,
+        entry_id: id,
+        keyword,
+        col_index: colIndex,
+        row_index: rowIndex,
+      })
+    }
+  }
 
   const handleAnalyze = async () => {
     if (!entry || analysisLoading) return
@@ -278,6 +349,24 @@ export default function EntryPage({ params }: { params: Promise<{ id: string }> 
           )}
           {analysisError && <p className="text-red-400 text-xs mt-2">{analysisError}</p>}
         </div>
+      )}
+
+      {/* キーワードマトリクス */}
+      {!isEditing && (
+        matrix ? (
+          <div className="mb-6">
+            <KeywordMatrix matrix={matrix} savedKeys={savedKeys} onToggle={handleToggle} />
+          </div>
+        ) : matrixLoading ? (
+          <div className="mb-6">
+            <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">キーワードマトリクス</p>
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="h-10 bg-zinc-800 animate-pulse rounded-lg" />
+              ))}
+            </div>
+          </div>
+        ) : null
       )}
 
       {/* 感情分析 */}

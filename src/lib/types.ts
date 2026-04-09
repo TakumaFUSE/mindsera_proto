@@ -1,3 +1,20 @@
+export interface KeywordMatrix {
+  columns: [
+    { keyword: string; related1: string; related2: string },
+    { keyword: string; related1: string; related2: string },
+    { keyword: string; related1: string; related2: string }
+  ]
+}
+
+export interface KeywordSave {
+  id: string
+  entryId: string
+  keyword: string
+  rowIndex: number
+  colIndex: number
+  createdAt: string
+}
+
 export interface JournalEntry {
   id: string
   title: string
@@ -8,6 +25,7 @@ export interface JournalEntry {
   emotionAnalysis?: EmotionAnalysis
   artUrl?: string
   imageUrls?: string[]
+  keywordMatrix?: KeywordMatrix
   location?: {
     latitude: number
     longitude: number
