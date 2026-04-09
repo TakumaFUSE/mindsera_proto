@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { EMOTION_ANALYSIS_SYSTEM_PROMPT, EMOTION_ANALYSIS_TOOL } from '@/lib/prompts/analyze'
 
 const anthropic = new Anthropic()
 
@@ -10,72 +11,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const SYSTEM_PROMPT = `あなたは感情心理学と臨床心理学を専門とする感情分析AIです。
-Robert Plutchikの感情の輪モデルに基づいて、ユーザーのジャーナルエントリに含まれる感情を多層的に分析してください。
-
-## 分析の指針
-- 表面的なキーワードマッチではなく、文脈・トーン・暗示から感情を読み取る
-- 矛盾した感情（例: 喜びと不安の共存）も積極的に検出する
-- 書き手が自覚していない可能性のある感情にも注目する
-- spansには感情の根拠となる原文のフレーズを正確に引用する
-
-## Plutchikの8基本感情
-- joy (喜び): 幸福感、満足、達成感、感謝、充実
-- trust (信頼): 安心、受容、繋がり、帰属感
-- fear (恐れ): 不安、懸念、心配、脅威の感覚
-- surprise (驚き): 予想外の発見、認識の変化
-- sadness (悲しみ): 喪失感、後悔、寂しさ、落胆
-- disgust (嫌悪): 拒絶感、不快、価値観との衝突
-- anger (怒り): 苛立ち、フラストレーション、不公平感
-- anticipation (期待): 希望、楽しみ、将来への意欲
-
-## 品質基準
-- score 0.15未満の感情は除外する
-- emotionsはscore降順で並べる
-- analysisTextは「〜ですね」で終わらず、問いかけや気づきで終わること（150〜200文字）`
-
-const ANALYSIS_TOOL: Anthropic.Tool = {
-  name: 'submit_emotion_analysis',
-  description: '感情分析の結果を構造化して返す',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      emotions: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            type: { type: 'string', enum: ['joy', 'trust', 'fear', 'surprise', 'sadness', 'disgust', 'anger', 'anticipation'] },
-            score: { type: 'number' },
-            label: { type: 'string' },
-            description: { type: 'string' },
-            spans: { type: 'array', items: { type: 'string' } },
-          },
-          required: ['type', 'score', 'label', 'description', 'spans'],
-        },
-      },
-      dominant: { type: 'string', enum: ['joy', 'trust', 'fear', 'surprise', 'sadness', 'disgust', 'anger', 'anticipation'] },
-      overall: { type: 'string' },
-      analysisText: { type: 'string' },
-      summary: { type: 'string', description: 'エントリの核心を一文で要約（40文字以内）' },
-      topics: {
-        type: 'array',
-        description: 'エントリに登場する具体的なトピック・好きなもの・人・場所などを3〜5個',
-        items: { type: 'string' },
-      },
-    },
-    required: ['emotions', 'dominant', 'overall', 'analysisText', 'summary', 'topics'],
-  },
-}
-
 async function analyzeEntry(content: string) {
   const plainText = content.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').trim()
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
-    system: SYSTEM_PROMPT,
-    tools: [ANALYSIS_TOOL],
-    tool_choice: { type: 'tool', name: 'submit_emotion_analysis' },
+    system: EMOTION_ANALYSIS_SYSTEM_PROMPT,
+    tools: [EMOTION_ANALYSIS_TOOL],
+    tool_choice: { type: 'tool', name: EMOTION_ANALYSIS_TOOL.name },
     messages: [{ role: 'user', content: `以下のジャーナルエントリを感情分析してください:\n\n${plainText}` }],
   })
   const block = response.content.find((b) => b.type === 'tool_use')

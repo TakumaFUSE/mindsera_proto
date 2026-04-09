@@ -1,19 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
+import { GENERATE_PERSONA_SYSTEM_PROMPT } from '@/lib/prompts/generate-persona'
 
 const client = new Anthropic()
-
-const SYSTEM_PROMPT = `ユーザーが「こんな人と話したい」と書いた説明文をもとに、
-AIメンターとしてのシステムプロンプトを生成してください。
-
-出力はJSONのみ（前後に説明不要）:
-{
-  "name": "メンターの名前（10文字以内）",
-  "role": "一言でどんな人か（15文字以内）",
-  "emoji": "このメンターを象徴する絵文字1文字",
-  "color": "16進数のカラーコード。メンターのキャラクターに合う色",
-  "systemPrompt": "このメンターのシステムプロンプト（日本語）。メンターの話し方・価値観・アプローチを具体的に記述する。ユーザーの説明文に忠実に。200〜400文字。末尾に以下の共通ルールを必ず含める: 返答は日本語で3〜6文。毎回の返答の最後は問いかけか提案で終わること。"
-}`
 
 export async function POST(req: NextRequest) {
   const { description } = await req.json()
@@ -25,7 +14,7 @@ export async function POST(req: NextRequest) {
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
+    system: GENERATE_PERSONA_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: description }],
   })
 
