@@ -480,8 +480,8 @@ function ChatView({ persona, onReset }: { persona: ChatPersona; onReset: () => v
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="メッセージを入力… (⌘+Enter で送信)"
-            rows={2}
+            placeholder="メッセージを入力…"
+            rows={1}
             className="flex-1 bg-zinc-900 border border-zinc-800 focus:border-zinc-600 rounded-xl px-4 py-3 text-sm text-zinc-100 placeholder-zinc-700 outline-none resize-none transition-colors leading-relaxed"
           />
           <button
@@ -492,7 +492,7 @@ function ChatView({ persona, onReset }: { persona: ChatPersona; onReset: () => v
             <Send className="w-4 h-4" />
           </button>
         </div>
-        <p className="text-xs text-zinc-700 mt-2 text-right">⌘+Enter で送信</p>
+        <p className="hidden sm:block text-xs text-zinc-700 mt-2 text-right">⌘+Enter で送信</p>
       </div>
     </div>
   )
