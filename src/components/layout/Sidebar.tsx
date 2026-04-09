@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   PenLine,
   BarChart2,
-  BookOpen,
   MessageCircle,
   Sparkles,
   LogOut,
@@ -18,7 +17,6 @@ import { useRouter } from 'next/navigation'
 const navItems = [
   { label: 'ダッシュボード', href: '/dashboard', icon: LayoutDashboard, enabled: true },
   { label: 'インサイト',     href: '/insights',  icon: BarChart2,       enabled: true },
-  { label: 'フレームワーク', href: '/frameworks', icon: BookOpen,       enabled: true },
   { label: 'メンター',       href: '/mentor',    icon: MessageCircle,   enabled: true },
 ]
 

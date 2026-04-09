@@ -2,15 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, PenLine, BarChart2, BookOpen, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, PenLine, BarChart2, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { label: 'ホーム',         href: '/dashboard',   icon: LayoutDashboard, isCenterAction: false },
-  { label: 'インサイト',     href: '/insights',    icon: BarChart2,       isCenterAction: false },
-  { label: '書く',           href: '/journal/new', icon: PenLine,         isCenterAction: true  },
-  { label: 'メンター',       href: '/mentor',      icon: MessageCircle,   isCenterAction: false },
-  { label: 'フレームワーク', href: '/frameworks',  icon: BookOpen,        isCenterAction: false },
+  { label: 'ホーム',     href: '/dashboard',   icon: LayoutDashboard, isCenterAction: false },
+  { label: 'インサイト', href: '/insights',    icon: BarChart2,       isCenterAction: false },
+  { label: '書く',       href: '/journal/new', icon: PenLine,         isCenterAction: true  },
+  { label: 'メンター',   href: '/mentor',      icon: MessageCircle,   isCenterAction: false },
 ]
 
 export function BottomNav() {

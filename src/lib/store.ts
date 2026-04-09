@@ -49,7 +49,6 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
       artUrl: row.art_url ?? undefined,
       imageUrls: row.image_urls?.length ? row.image_urls : undefined,
       emotionAnalysis: row.emotion_analysis ?? undefined,
-      frameworkId: row.framework_id ?? undefined,
       location: row.latitude != null && row.longitude != null
         ? { latitude: row.latitude, longitude: row.longitude, label: row.location_label ?? undefined }
         : undefined,
@@ -75,7 +74,6 @@ export const useJournalStore = create<JournalStore>((set, get) => ({
         word_count: entry.wordCount,
         summary: entry.summary ?? null,
         image_urls: entry.imageUrls ?? null,
-        framework_id: entry.frameworkId ?? null,
         latitude: entry.location?.latitude ?? null,
         longitude: entry.location?.longitude ?? null,
         location_label: entry.location?.label ?? null,

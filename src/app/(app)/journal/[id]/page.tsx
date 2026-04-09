@@ -45,9 +45,9 @@ function getNextActions(dominant: PlutchikEmotion) {
   const card3 = isNegative
     ? {
         icon: '🧠',
-        title: 'CBTフレームワークで整理する',
-        description: '思考パターンを可視化してみましょう',
-        href: '/frameworks',
+        title: 'CBTメンターと整理する',
+        description: '思考パターンを一緒に整理しましょう',
+        href: '/mentor',
       }
     : {
         icon: '✏️',

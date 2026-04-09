@@ -80,14 +80,14 @@ function calcNudge(entries: JournalEntry[]): Nudge | null {
     href: '/mentor',
   }
   if (avg('joy') >= 0.6 && avg('anticipation') <= 0.3) return {
-    message: '喜びを感じていますが、期待感が少し低め。いきがいフレームワークで、やりがいの方向性を確認してみませんか？',
-    buttonLabel: 'いきがいを探る',
-    href: '/frameworks',
+    message: '喜びを感じていますが、期待感が少し低め。メンターと話して、やりがいの方向性を確認してみませんか？',
+    buttonLabel: 'メンターと話す',
+    href: '/mentor',
   }
   return {
-    message: '今週も内省を続けています。デイリーレビューフレームワークで、週を振り返ってみましょう。',
+    message: '今週も内省を続けています。メンターと一緒に週を振り返ってみましょう。',
     buttonLabel: '週を振り返る',
-    href: '/frameworks',
+    href: '/mentor',
   }
 }
 
@@ -574,12 +574,12 @@ export default function InsightsPage() {
                       </span>
                     </div>
                     <div className="flex gap-1 mt-3">
-                      {entry.emotionAnalysis!.emotions.slice(0, 5).map((e) => {
+                      {entry.emotionAnalysis!.emotions.slice(0, 5).map((e, ei) => {
                         const eMeta = EMOTION_META[e.type]
                         if (!eMeta) return null
                         return (
                           <div
-                            key={e.type}
+                            key={`${e.type}-${ei}`}
                             title={`${eMeta.label} ${Math.round(e.score * 100)}%`}
                             style={{
                               flex: e.score,

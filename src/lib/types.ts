@@ -8,7 +8,6 @@ export interface JournalEntry {
   emotionAnalysis?: EmotionAnalysis
   artUrl?: string
   imageUrls?: string[]
-  frameworkId?: string
   location?: {
     latitude: number
     longitude: number
